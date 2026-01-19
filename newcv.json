@@ -1,0 +1,185 @@
+{
+  "basics": {
+    "name": "Zain Ali",
+    "headline": "Full Stack Developer (AI & SaaS Systems)",
+    "email": "zain.ali.cs.dev@gmail.com",
+    "phone": "+923081412631",
+    "location": "Islamabad, Pakistan",
+    "url": {
+      "label": "Portfolio",
+      "href": "https://zainfullstackdev.netlify.app/"
+    },
+    "customFields": [
+      {
+        "id": "github",
+        "icon": "github-logo",
+        "name": "GitHub",
+        "value": "https://github.com/zain0313233"
+      },
+      {
+        "id": "linkedin",
+        "icon": "linkedin-logo",
+        "name": "LinkedIn",
+        "value": "https://www.linkedin.com/in/zain-ali-fullstack/"
+      }
+    ],
+    "picture": {
+      "url": "",
+      "size": 64,
+      "aspectRatio": 1,
+      "borderRadius": 0,
+      "effects": {
+        "hidden": false,
+        "border": false,
+        "grayscale": false
+      }
+    }
+  },
+
+  "sections": {
+    "summary": {
+      "id": "summary",
+      "name": "Professional Summary",
+      "visible": true,
+      "columns": 1,
+      "separateLinks": false,
+      "content": "<p>Full Stack Developer with 1+ year of industry experience building scalable web and AI-powered SaaS applications. Specialized in Node.js, React, Next.js, real-time systems, and AI voice agents. Experienced in delivering production-ready features, optimizing performance, and collaborating in agile teams.</p>"
+    },
+
+    "experience": {
+      "id": "experience",
+      "name": "Experience",
+      "visible": true,
+      "columns": 1,
+      "separateLinks": true,
+      "items": [
+        {
+          "id": "definitiq",
+          "visible": true,
+          "company": "Definitiq AI",
+          "position": "Full Stack Developer",
+          "location": "Islamabad (E-11)",
+          "date": "Aug 2025 – Jan 2026",
+          "summary": "<ul><li>Worked on Hilda, an AI-powered voice agent SaaS platform for inbound and outbound automated calls.</li><li>Optimized system performance, implemented new features, and resolved critical production bugs.</li><li>Built real-time features using WebSockets and Server-Sent Events (SSE).</li><li>Implemented background automation using cron jobs and schedulers.</li><li>Integrated Twilio for voice calling and Stripe for payment processing.</li><li>Developed internal finance tracking and employee payroll systems.</li></ul>",
+          "url": {
+            "label": "",
+            "href": ""
+          }
+        },
+        {
+          "id": "eveonix",
+          "visible": true,
+          "company": "Eveonix Pvt Ltd",
+          "position": "Junior Full Stack Developer",
+          "location": "Lahore",
+          "date": "8 Months",
+          "summary": "<ul><li>Developed full-stack web applications using React.js, Next.js, Node.js, and Express.</li><li>Built REST APIs and integrated MongoDB and PostgreSQL databases.</li><li>Worked on AWS-based deployments and automation systems.</li></ul>",
+          "url": {
+            "label": "",
+            "href": "https://eveonix.com/"
+          }
+        }
+      ]
+    },
+
+    "education": {
+      "id": "education",
+      "name": "Education",
+      "visible": true,
+      "columns": 1,
+      "separateLinks": true,
+      "items": [
+        {
+          "id": "uaar",
+          "visible": true,
+          "institution": "PMAS Arid Agriculture University Rawalpindi",
+          "studyType": "BS Information Technology",
+          "area": "Information Technology",
+          "score": "CGPA: 2.95",
+          "date": "Oct 2020 – May 2024",
+          "summary": "",
+          "url": {
+            "label": "",
+            "href": "https://www.uaar.edu.pk/"
+          }
+        }
+      ]
+    },
+
+    "projects": {
+      "id": "projects",
+      "name": "Projects",
+      "visible": true,
+      "columns": 1,
+      "separateLinks": true,
+      "items": [
+        {
+          "id": "medical-ai",
+          "visible": true,
+          "name": "AI Medical Clinic Management System",
+          "description": "AI-powered healthcare platform",
+          "date": "2025",
+          "summary": "<p>Developing an AI-based clinic system with voice-agent appointment booking, RBAC, and automated medical report analysis.</p>",
+          "keywords": [],
+          "url": {
+            "label": "",
+            "href": ""
+          }
+        }
+      ]
+    },
+
+    "skills": {
+      "id": "skills",
+      "name": "Skills",
+      "visible": true,
+      "columns": 1,
+      "separateLinks": false,
+      "items": [
+        {
+          "id": "frontend",
+          "visible": true,
+          "name": "Frontend Development",
+          "description": "Modern frontend frameworks and UI development",
+          "level": 5,
+          "keywords": ["React.js", "Next.js", "Vite", "Tailwind CSS"]
+        },
+        {
+          "id": "backend",
+          "visible": true,
+          "name": "Backend Development",
+          "description": "Scalable backend APIs and real-time systems",
+          "level": 5,
+          "keywords": ["Node.js", "Express.js", "WebSockets", "SSE"]
+        },
+        {
+          "id": "databases",
+          "visible": true,
+          "name": "Databases",
+          "description": "Relational and NoSQL databases",
+          "level": 5,
+          "keywords": ["MongoDB", "PostgreSQL", "MySQL"]
+        }
+      ]
+    },
+
+    "awards": { "id": "awards", "name": "Awards", "visible": true, "columns": 1, "items": [] },
+    "certifications": { "id": "certifications", "name": "Certifications", "visible": true, "columns": 1, "items": [] },
+    "volunteer": { "id": "volunteer", "name": "Volunteering", "visible": true, "columns": 1, "items": [] },
+    "interests": { "id": "interests", "name": "Interests", "visible": true, "columns": 1, "items": [] },
+    "languages": { "id": "languages", "name": "Languages", "visible": true, "columns": 1, "items": [] },
+    "profiles": { "id": "profiles", "name": "Profiles", "visible": true, "columns": 1, "items": [] },
+    "publications": { "id": "publications", "name": "Publications", "visible": true, "columns": 1, "items": [] },
+    "references": { "id": "references", "name": "References", "visible": true, "columns": 1, "items": [] },
+    "custom": {}
+  },
+
+  "metadata": {
+    "template": "ditto",
+    "page": {
+      "margin": 26,
+      "format": "a4",
+      "options": { "pageNumbers": false }
+    }
+  }
+}
