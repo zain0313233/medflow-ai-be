@@ -14,12 +14,17 @@ export interface IAppointment extends Document {
   patientPhone?: string;
   patientName?: string;
   patientEmail?: string;
+  doctorName?: string; // For voice bookings (from knowledge base)
+  bookingSource?: 'web' | 'voice_agent' | 'phone' | 'admin';
+  voiceCallId?: mongoose.Schema.Types.ObjectId; // Reference to VoiceCall
   voiceAgentBooking?: boolean; // Flag to identify voice agent bookings
   voiceAgentData?: {
     callId?: string;
     transcript?: string;
     confidence?: number;
     agentId?: string;
+    userSentiment?: string;
+    callSuccessful?: boolean;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -97,6 +102,20 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
       type: String,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
     },
+    doctorName: {
+      type: String,
+      maxlength: [100, 'Doctor name cannot exceed 100 characters']
+    },
+    bookingSource: {
+      type: String,
+      enum: ['web', 'voice_agent', 'phone', 'admin'],
+      default: 'web',
+      index: true
+    },
+    voiceCallId: {
+      type: Schema.Types.ObjectId,
+      ref: 'VoiceCall'
+    },
     voiceAgentBooking: {
       type: Boolean,
       default: false,
@@ -110,7 +129,9 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
         min: 0,
         max: 1
       },
-      agentId: String
+      agentId: String,
+      userSentiment: String,
+      callSuccessful: Boolean
     }
   },
   {
