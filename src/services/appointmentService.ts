@@ -6,19 +6,27 @@ import { NotFoundError, ValidationError, ConflictError } from '../utils/errors';
 export interface CreateAppointmentData {
   patientId?: string;
   doctorId: string;
+  doctorName?: string; // For voice bookings (from knowledge base)
   appointmentDate: string; // YYYY-MM-DD
   appointmentTime: string; // HH:MM
   consultationType: 'online' | 'in-person';
   reasonForVisit?: string;
   symptoms?: string;
+  duration?: number;
+  status?: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
   patientPhone?: string;
   patientName?: string;
   patientEmail?: string;
+  bookingSource?: 'web' | 'voice_agent' | 'phone' | 'admin';
+  voiceCallId?: any;
   voiceAgentBooking?: boolean;
   voiceAgentData?: {
     callId?: string;
     transcript?: string;
     confidence?: number;
+    agentId?: string;
+    userSentiment?: string;
+    callSuccessful?: boolean;
   };
 }
 
@@ -32,16 +40,31 @@ class AppointmentService {
   // Create new appointment
   async createAppointment(appointmentData: CreateAppointmentData): Promise<IAppointment> {
     try {
-      // Validate doctor exists and is active
-      const doctor = await User.findById(appointmentData.doctorId);
-      if (!doctor || doctor.role !== 'doctor' || !doctor.isActive) {
-        throw new NotFoundError('Doctor not found or inactive');
-      }
+      let doctorProfile = null;
+      
+      // ✅ Phase 1: Skip doctor validation for voice agent bookings (doctors are in knowledge base)
+      // Phase 2: Will validate against real doctor DB
+      if (!appointmentData.voiceAgentBooking) {
+        // Validate doctor exists and is active (only for non-voice bookings)
+        const doctor = await User.findById(appointmentData.doctorId);
+        if (!doctor || doctor.role !== 'doctor' || !doctor.isActive) {
+          throw new NotFoundError('Doctor not found or inactive');
+        }
 
-      // Get doctor profile for availability check
-      const doctorProfile = await DoctorProfile.findOne({ userId: appointmentData.doctorId });
-      if (!doctorProfile) {
-        throw new NotFoundError('Doctor profile not found');
+        // Get doctor profile for availability check
+        doctorProfile = await DoctorProfile.findOne({ userId: appointmentData.doctorId });
+        if (!doctorProfile) {
+          throw new NotFoundError('Doctor profile not found');
+        }
+
+        // Check if doctor is available on this day
+        const appointmentDate = new Date(appointmentData.appointmentDate);
+        const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'short' });
+        if (!doctorProfile.workingDays.includes(dayOfWeek)) {
+          throw new ValidationError(`Doctor is not available on ${dayOfWeek}`);
+        }
+      } else {
+        console.log('ℹ️ Voice agent booking - skipping doctor validation (Phase 1)');
       }
 
       // Validate appointment date and time
@@ -53,22 +76,18 @@ class AppointmentService {
         throw new ValidationError('Cannot book appointment in the past');
       }
 
-      // Check if doctor is available on this day
-      const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'short' });
-      if (!doctorProfile.workingDays.includes(dayOfWeek)) {
-        throw new ValidationError(`Doctor is not available on ${dayOfWeek}`);
-      }
+      // Check if time is within working hours (only for non-voice bookings)
+      if (!appointmentData.voiceAgentBooking && doctorProfile) {
+        const isTimeAvailable = await this.isTimeSlotAvailable(
+          appointmentData.doctorId,
+          appointmentData.appointmentDate,
+          appointmentData.appointmentTime,
+          doctorProfile
+        );
 
-      // Check if time is within working hours
-      const isTimeAvailable = await this.isTimeSlotAvailable(
-        appointmentData.doctorId,
-        appointmentData.appointmentDate,
-        appointmentData.appointmentTime,
-        doctorProfile
-      );
-
-      if (!isTimeAvailable.available) {
-        throw new ValidationError(`Time slot not available: ${isTimeAvailable.reason}`);
+        if (!isTimeAvailable.available) {
+          throw new ValidationError(`Time slot not available: ${isTimeAvailable.reason}`);
+        }
       }
 
       // If patientId is provided, validate patient exists
@@ -83,17 +102,19 @@ class AppointmentService {
       const appointment = new Appointment({
         ...appointmentData,
         appointmentDate,
-        duration: doctorProfile.appointmentDuration || 30,
-        status: 'pending'
+        duration: appointmentData.duration || doctorProfile?.appointmentDuration || 30,
+        status: appointmentData.status || 'pending'
       });
 
       await appointment.save();
 
-      // Populate doctor and patient info
-      await appointment.populate([
-        { path: 'doctorId', select: 'firstName lastName email specialization' },
-        { path: 'patientId', select: 'firstName lastName email phone' }
-      ]);
+      // Populate doctor and patient info (only if not voice booking)
+      if (!appointmentData.voiceAgentBooking) {
+        await appointment.populate([
+          { path: 'doctorId', select: 'firstName lastName email specialization' },
+          { path: 'patientId', select: 'firstName lastName email phone' }
+        ]);
+      }
 
       return appointment;
     } catch (error: any) {

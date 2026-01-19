@@ -68,6 +68,14 @@ class RetailAIController {
         throw new Error('RETAIL_AI_API_KEY not configured in environment variables');
       }
 
+      // Extract patientId from request body (from logged-in user)
+      const { patientId, metadata } = req.body;
+      
+      console.log('📋 Request data:', {
+        patientId: patientId,
+        metadata: metadata
+      });
+
       // Call Retell API to create web call and get access token
       const response = await fetch('https://api.retellai.com/v2/create-web-call', {
         method: 'POST',
@@ -78,9 +86,10 @@ class RetailAIController {
         body: JSON.stringify({
           agent_id: this.agentId,
           metadata: {
-            source: 'medflow_web_app',
-            timestamp: new Date().toISOString(),
-            ...req.body.metadata
+            patientId: patientId,  // ✅ Pass patient ID to Retell
+            ...metadata,
+            source: metadata?.source || 'patient_dashboard',
+            timestamp: new Date().toISOString()
           }
         })
       });

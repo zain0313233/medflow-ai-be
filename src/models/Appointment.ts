@@ -14,12 +14,17 @@ export interface IAppointment extends Document {
   patientPhone?: string;
   patientName?: string;
   patientEmail?: string;
+  doctorName?: string; // For voice bookings (from knowledge base)
+  bookingSource?: 'web' | 'voice_agent' | 'phone' | 'admin';
+  voiceCallId?: mongoose.Schema.Types.ObjectId; // Reference to VoiceCall
   voiceAgentBooking?: boolean; // Flag to identify voice agent bookings
   voiceAgentData?: {
     callId?: string;
     transcript?: string;
     confidence?: number;
     agentId?: string;
+    userSentiment?: string;
+    callSuccessful?: boolean;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -87,7 +92,15 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     },
     patientPhone: {
       type: String,
-      match: [/^\+?[\d\s\-\(\)]+$/, 'Please provide a valid phone number']
+      validate: {
+        validator: function(v: string) {
+          // Allow empty, null, undefined, or "N/A"
+          if (!v || v === 'N/A') return true;
+          // Validate phone format only if provided
+          return /^\+?[\d\s\-\(\)]+$/.test(v);
+        },
+        message: 'Please provide a valid phone number'
+      }
     },
     patientName: {
       type: String,
@@ -96,6 +109,20 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     patientEmail: {
       type: String,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
+    },
+    doctorName: {
+      type: String,
+      maxlength: [100, 'Doctor name cannot exceed 100 characters']
+    },
+    bookingSource: {
+      type: String,
+      enum: ['web', 'voice_agent', 'phone', 'admin'],
+      default: 'web',
+      index: true
+    },
+    voiceCallId: {
+      type: Schema.Types.ObjectId,
+      ref: 'VoiceCall'
     },
     voiceAgentBooking: {
       type: Boolean,
@@ -110,7 +137,9 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
         min: 0,
         max: 1
       },
-      agentId: String
+      agentId: String,
+      userSentiment: String,
+      callSuccessful: Boolean
     }
   },
   {
