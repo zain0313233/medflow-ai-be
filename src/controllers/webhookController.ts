@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import appointmentService from '../services/appointmentService';
 import VoiceCall from '../models/VoiceCall';
+import User from '../models/User';
 import {
   parseRelativeDate,
   parseTime,
@@ -224,20 +225,43 @@ class WebhookController {
         throw new Error('No custom analysis data found in call');
       }
       
+      // ✅ Extract patientId from metadata (from logged-in user)
+      const patientId = call?.metadata?.patientId;
+      
+      if (!patientId) {
+        throw new Error('Patient ID not found in call metadata. Patient must be logged in to book appointments.');
+      }
+      
       console.log('📋 Creating appointment from call data:');
+      console.log('   Patient ID:', patientId);
       console.log('   Patient Name:', customData.patient_name);
       console.log('   Preferred Doctor:', customData.preferred_doctor);
       console.log('   Preferred Date:', customData.preferred_date);
       console.log('   Preferred Time:', customData.preferred_time);
       console.log('   Reason:', customData.reason_for_visit);
       
+      // Get patient details from database
+      const patient = await User.findById(patientId);
+      if (!patient) {
+        throw new Error(`Patient not found with ID: ${patientId}`);
+      }
+      
+      console.log('✅ Patient found:', {
+        id: patient._id,
+        name: `${patient.firstName} ${patient.lastName}`,
+        phone: patient.phone,
+        email: patient.email
+      });
+      
       // Extract and format data
       const patientPhone = formatPhoneNumber(
-        call?.from_number,
-        customData.phone_number
+        patient.phone,  // ✅ Use phone from patient account
+        call?.from_number || customData.phone_number
       );
       
-      const patientName = extractPatientName(customData.patient_name);
+      const patientName = extractPatientName(
+        customData.patient_name || `${patient.firstName} ${patient.lastName}`
+      );
       
       // Parse date and time
       const appointmentDate = parseRelativeDate(customData.preferred_date);
@@ -249,10 +273,11 @@ class WebhookController {
       
       // Prepare appointment data
       const appointmentData = {
-        // Patient Info
+        // Patient Info (from logged-in user)
+        patientId: patientId,  // ✅ From metadata
         patientName: patientName,
         patientPhone: patientPhone,
-        patientEmail: customData.email || undefined,
+        patientEmail: patient.email,
         
         // Doctor Info (from knowledge base for now)
         doctorName: customData.preferred_doctor || 'Dr. Sara',
@@ -289,6 +314,7 @@ class WebhookController {
       console.log('✅ Appointment created successfully:', {
         id: appointment._id,
         patient: patientName,
+        patientId: patientId,
         doctor: appointmentData.doctorName,
         date: appointmentDate,
         time: appointmentTime,
