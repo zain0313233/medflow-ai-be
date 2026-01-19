@@ -259,6 +259,9 @@ class WebhookController {
         call?.from_number || customData.phone_number
       );
       
+      // Only include phone if it's valid (not "N/A")
+      const validPhone = patientPhone !== 'N/A' ? patientPhone : undefined;
+      
       const patientName = extractPatientName(
         customData.patient_name || `${patient.firstName} ${patient.lastName}`
       );
@@ -269,14 +272,14 @@ class WebhookController {
       
       console.log('   Parsed Date:', appointmentDate);
       console.log('   Parsed Time:', appointmentTime);
-      console.log('   Patient Phone:', patientPhone);
+      console.log('   Patient Phone:', validPhone || 'Not provided');
       
       // Prepare appointment data
       const appointmentData = {
         // Patient Info (from logged-in user)
         patientId: patientId,  // ✅ From metadata
         patientName: patientName,
-        patientPhone: patientPhone,
+        patientPhone: validPhone,  // ✅ Only if valid, otherwise undefined
         patientEmail: patient.email,
         
         // Doctor Info (from knowledge base for now)

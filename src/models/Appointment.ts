@@ -92,10 +92,14 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     },
     patientPhone: {
       type: String,
-      match: [/^\+?[\d\s\-\(\)]+$/, 'Please provide a valid phone number'],
-      required: function(this: IAppointment) {
-        // Only required for non-voice bookings
-        return !this.voiceAgentBooking;
+      validate: {
+        validator: function(v: string) {
+          // Allow empty, null, undefined, or "N/A"
+          if (!v || v === 'N/A') return true;
+          // Validate phone format only if provided
+          return /^\+?[\d\s\-\(\)]+$/.test(v);
+        },
+        message: 'Please provide a valid phone number'
       }
     },
     patientName: {
