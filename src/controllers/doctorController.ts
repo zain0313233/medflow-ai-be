@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import doctorService from '../services/doctorService';
+import { generateToken } from '../utils/jwt';
+import User from '../models/User';
 
 class DoctorController {
   // Create or update doctor profile
@@ -16,6 +18,28 @@ class DoctorController {
         req.user.userId,
         req.body
       );
+
+      // Get updated user to generate new token with profileCompleted = true
+      const user = await User.findById(req.user.userId);
+      
+      if (user) {
+        // Generate new token with updated profileCompleted status
+        const newToken = generateToken({
+          userId: user._id.toString(),
+          email: user.email,
+          role: user.role,
+          profileCompleted: true
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: 'Doctor profile updated successfully',
+          data: {
+            profile,
+            token: newToken // Send new token to update frontend
+          }
+        });
+      }
 
       res.status(200).json({
         success: true,
