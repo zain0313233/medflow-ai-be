@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import appointmentController from '../controllers/appointmentController';
 import { authMiddleware, roleMiddleware, optionalAuth } from '../middlewares/authMiddleware';
+import { requireProfileCompletion } from '../middlewares/profileCompletionMiddleware';
 import { 
   validateAppointment, 
   validateVoiceAppointment, 
@@ -42,6 +43,7 @@ router.post(
 router.get(
   '/my-appointments',
   authMiddleware,
+  requireProfileCompletion,
   roleMiddleware('doctor'),
   appointmentController.getMyAppointments.bind(appointmentController)
 );

@@ -331,6 +331,41 @@ class UserController {
       });
     }
   }
+
+  // Get profile completion status
+  async getProfileStatus(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Unauthorized'
+        });
+      }
+
+      const user = await userService.getUserById(req.user.userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          profileCompleted: user.profileCompleted || false,
+          role: user.role,
+          userId: user._id
+        }
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Failed to fetch profile status'
+      });
+    }
+  }
 }
 
 export default new UserController();

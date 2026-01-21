@@ -59,7 +59,7 @@ class AppointmentService {
 
         // Check if doctor is available on this day
         const appointmentDate = new Date(appointmentData.appointmentDate);
-        const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
         if (!doctorProfile.workingDays.includes(dayOfWeek)) {
           throw new ValidationError(`Doctor is not available on ${dayOfWeek}`);
         }
@@ -145,13 +145,31 @@ class AppointmentService {
       const [endHours, endMinutes] = doctorProfile.workingHours.end.split(':').map(Number);
       
       const startTimeInMinutes = startHours * 60 + startMinutes;
-      const endTimeInMinutes = endHours * 60 + endMinutes;
+      let endTimeInMinutes = endHours * 60 + endMinutes;
 
-      if (timeInMinutes < startTimeInMinutes || timeInMinutes >= endTimeInMinutes) {
-        return { 
-          available: false, 
-          reason: `Outside working hours (${doctorProfile.workingHours.start} - ${doctorProfile.workingHours.end})` 
-        };
+      // Handle overnight shifts
+      const isOvernightShift = endTimeInMinutes <= startTimeInMinutes;
+      if (isOvernightShift) {
+        // For overnight shifts, check if time is either:
+        // 1. After start time (same day), OR
+        // 2. Before end time (next day, represented as time < end)
+        const isInShift = timeInMinutes >= startTimeInMinutes || timeInMinutes < endTimeInMinutes;
+        if (!isInShift) {
+          console.log(`  ❌ ${time} - Outside overnight shift hours`);
+          return { 
+            available: false, 
+            reason: `Outside working hours (${doctorProfile.workingHours.start} - ${doctorProfile.workingHours.end})` 
+          };
+        }
+      } else {
+        // Normal shift (same day)
+        if (timeInMinutes < startTimeInMinutes || timeInMinutes >= endTimeInMinutes) {
+          console.log(`  ❌ ${time} - Outside working hours`);
+          return { 
+            available: false, 
+            reason: `Outside working hours (${doctorProfile.workingHours.start} - ${doctorProfile.workingHours.end})` 
+          };
+        }
       }
 
       // Check break times
@@ -162,7 +180,14 @@ class AppointmentService {
         const breakStartInMinutes = breakStartHours * 60 + breakStartMinutes;
         const breakEndInMinutes = breakEndHours * 60 + breakEndMinutes;
 
-        if (timeInMinutes >= breakStartInMinutes && timeInMinutes < breakEndInMinutes) {
+        // Only check break times that are within the working hours
+        // Skip invalid break times (like 00:00 - 13:00 for a 09:00 - 15:00 shift)
+        const isBreakInWorkingHours = isOvernightShift 
+          ? (breakStartInMinutes >= startTimeInMinutes || breakStartInMinutes < endTimeInMinutes)
+          : (breakStartInMinutes >= startTimeInMinutes && breakStartInMinutes < endTimeInMinutes);
+
+        if (isBreakInWorkingHours && timeInMinutes >= breakStartInMinutes && timeInMinutes < breakEndInMinutes) {
+          console.log(`  ❌ ${time} - During break time (${breakTime.start} - ${breakTime.end})`);
           return { 
             available: false, 
             reason: `During break time (${breakTime.start} - ${breakTime.end})` 
@@ -179,11 +204,14 @@ class AppointmentService {
       });
 
       if (existingAppointment) {
+        console.log(`  ❌ ${time} - Already booked`);
         return { available: false, reason: 'Time slot already booked' };
       }
 
+      console.log(`  ✅ ${time} - Available`);
       return { available: true };
     } catch (error: any) {
+      console.error(`  ❌ ${time} - Error:`, error.message);
       return { available: false, reason: 'Error checking availability' };
     }
   }
@@ -191,15 +219,28 @@ class AppointmentService {
   // Get available slots for a doctor on a specific date
   async getAvailableSlots(doctorId: string, date: string): Promise<AvailableSlot[]> {
     try {
+      console.log(`\n🔍 getAvailableSlots called for doctor ${doctorId} on ${date}`);
+      
       const doctorProfile = await DoctorProfile.findOne({ userId: doctorId });
       if (!doctorProfile) {
         throw new NotFoundError('Doctor profile not found');
       }
 
+      console.log(`📋 Doctor profile found:`, {
+        workingHours: doctorProfile.workingHours,
+        workingDays: doctorProfile.workingDays,
+        breakTimes: doctorProfile.breakTimes,
+        appointmentDuration: doctorProfile.appointmentDuration
+      });
+
       const appointmentDate = new Date(date);
-      const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'short' });
+      const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      console.log(`📅 Day of week: ${dayOfWeek}`);
+      console.log(`📅 Working days: ${doctorProfile.workingDays.join(', ')}`);
 
       if (!doctorProfile.workingDays.includes(dayOfWeek)) {
+        console.log(`❌ Doctor not working on ${dayOfWeek}`);
         return [];
       }
 
@@ -210,10 +251,26 @@ class AppointmentService {
       const [endHours, endMinutes] = doctorProfile.workingHours.end.split(':').map(Number);
       
       let currentTime = startHours * 60 + startMinutes;
-      const endTime = endHours * 60 + endMinutes;
+      let endTime = endHours * 60 + endMinutes;
 
+      console.log(`⏰ Start time: ${startHours}:${startMinutes} (${currentTime} minutes)`);
+      console.log(`⏰ End time: ${endHours}:${endMinutes} (${endTime} minutes)`);
+
+      // Handle overnight shifts (e.g., 15:00 to 01:00)
+      // If end time is less than start time, it means shift goes to next day
+      const isOvernightShift = endTime <= currentTime;
+      if (isOvernightShift) {
+        console.log(`🌙 Overnight shift detected`);
+        endTime += 24 * 60; // Add 24 hours to end time
+        console.log(`⏰ Adjusted end time: ${endTime} minutes`);
+      }
+
+      console.log(`🔄 Generating slots from ${currentTime} to ${endTime} (${duration} min intervals)`);
+
+      let slotCount = 0;
       while (currentTime < endTime) {
-        const hours = Math.floor(currentTime / 60);
+        // Convert back to 24-hour format for overnight shifts
+        let hours = Math.floor(currentTime / 60) % 24;
         const minutes = currentTime % 60;
         const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
@@ -225,11 +282,17 @@ class AppointmentService {
           reason: availability.reason
         });
 
+        if (availability.available) {
+          slotCount++;
+        }
+
         currentTime += duration;
       }
 
+      console.log(`✅ Generated ${slots.length} total slots, ${slotCount} available`);
       return slots;
     } catch (error: any) {
+      console.error(`❌ Error in getAvailableSlots:`, error);
       throw error;
     }
   }

@@ -21,6 +21,7 @@ router.post('/verify-email', userController.verifyEmail.bind(userController));
 
 // Protected routes - User
 router.get('/profile', authMiddleware, userController.getProfile.bind(userController));
+router.get('/profile-status', authMiddleware, userController.getProfileStatus.bind(userController));
 router.put('/profile', authMiddleware, validateUpdateProfile, userController.updateProfile.bind(userController));
 router.post('/change-password', authMiddleware, validateChangePassword, userController.changePassword.bind(userController));
 router.post('/deactivate', authMiddleware, userController.deactivateAccount.bind(userController));

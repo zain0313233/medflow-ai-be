@@ -80,7 +80,8 @@ class UserService {
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
-      role: user.role
+      role: user.role,
+      profileCompleted: user.profileCompleted || false
     });
 
     // Remove password from response
@@ -127,7 +128,8 @@ class UserService {
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
-      role: user.role
+      role: user.role,
+      profileCompleted: user.profileCompleted || false
     });
 
     // Remove password from response
