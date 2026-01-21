@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IAppointment extends Document {
-  patientId: mongoose.Schema.Types.ObjectId;
+  patientId?: mongoose.Schema.Types.ObjectId; // Optional for voice agent bookings
   doctorId: mongoose.Schema.Types.ObjectId;
   appointmentDate: Date;
   appointmentTime: string; // "14:30"
@@ -35,7 +35,10 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     patientId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Patient ID is required'],
+      required: function(this: IAppointment) {
+        // Only required if NOT a voice agent booking
+        return !this.voiceAgentBooking;
+      },
       index: true
     },
     doctorId: {
