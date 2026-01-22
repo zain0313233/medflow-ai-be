@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import appointmentController from '../controllers/appointmentController';
-import { authMiddleware, roleMiddleware, optionalAuth } from '../middlewares/authMiddleware';
+import { authMiddleware, roleMiddleware } from '../middlewares/authMiddleware';
 import { appointmentBookingAuth } from '../middlewares/apiKeyMiddleware';
 import { requireProfileCompletion } from '../middlewares/profileCompletionMiddleware';
 import { 

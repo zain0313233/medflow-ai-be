@@ -514,7 +514,7 @@ class WebhookController {
           healthCheck: 'GET /api/webhook/health'
         }
       });
-    } catch (error: any) {
+    } catch {
       res.status(500).json({
         success: false,
         message: 'Webhook health check failed'
@@ -534,7 +534,7 @@ class WebhookController {
         receivedData: req.body,
         headers: req.headers
       });
-    } catch (error: any) {
+    } catch {
       res.status(500).json({
         success: false,
         message: 'Test webhook failed'

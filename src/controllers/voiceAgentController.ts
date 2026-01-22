@@ -101,7 +101,7 @@ class VoiceAgentController {
             totalSlots: slots.length,
             availableCount: slots.filter(slot => slot.available).length
           });
-        } catch (error) {
+        } catch {
           availability.push({
             doctorId,
             doctorName: 'Unknown',
@@ -319,7 +319,7 @@ class VoiceAgentController {
           cancelAppointment: 'DELETE /api/voice-agent/appointment/:confirmationNumber'
         }
       });
-    } catch (error: any) {
+    } catch {
       res.status(500).json({
         success: false,
         message: 'Voice agent API health check failed'

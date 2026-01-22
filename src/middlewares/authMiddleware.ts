@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JWTPayload } from '../utils/jwt';
-import { UnauthorizedError, ForbiddenError } from '../utils/errors';
+import { UnauthorizedError } from '../utils/errors';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: JWTPayload;
@@ -64,7 +65,7 @@ export const optionalAuth = (
       const decoded = verifyToken(token);
       req.user = decoded;
     }
-  } catch (error) {
+  } catch {
     // Optional, so we don't throw error
   }
   next();

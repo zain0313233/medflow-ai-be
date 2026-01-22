@@ -308,7 +308,7 @@ class AppointmentController {
   // Get all appointments (admin only)
   async getAllAppointments(req: Request, res: Response) {
     try {
-      const { page = 1, limit = 10, status, date } = req.query;
+      const { status, date } = req.query;
       
       const query: any = {};
       if (status) query.status = status;
