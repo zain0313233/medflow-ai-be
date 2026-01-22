@@ -22,15 +22,19 @@ router.get(
   doctorController.getMyProfile.bind(doctorController)
 );
 
-// Get doctor profile by user ID (anyone can view)
+// Get doctor profile by user ID - Authenticated users only (patient/admin)
 router.get(
   '/profile/:id',
+  authMiddleware,
+  roleMiddleware('patient', 'admin'),
   doctorController.getProfileById.bind(doctorController)
 );
 
-// Get all doctor profiles (anyone can view)
+// Get all doctor profiles - Authenticated users only (patient/admin)
 router.get(
   '/profiles',
+  authMiddleware,
+  roleMiddleware('patient', 'admin'),
   doctorController.getAllProfiles.bind(doctorController)
 );
 

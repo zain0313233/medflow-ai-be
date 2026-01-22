@@ -22,21 +22,27 @@ router.get(
   staffController.getMyProfile.bind(staffController)
 );
 
-// Get staff profile by user ID (anyone can view)
+// Get staff profile by user ID - Admin or Doctor only
 router.get(
   '/profile/:id',
+  authMiddleware,
+  roleMiddleware('admin', 'doctor'),
   staffController.getProfileById.bind(staffController)
 );
 
-// Get all staff profiles (anyone can view)
+// Get all staff profiles - Admin only
 router.get(
   '/profiles',
+  authMiddleware,
+  roleMiddleware('admin'),
   staffController.getAllProfiles.bind(staffController)
 );
 
-// Get staff by supervisor doctor ID (anyone can view)
+// Get staff by supervisor doctor ID - Doctor or Admin only
 router.get(
   '/doctor/:doctorId/staff',
+  authMiddleware,
+  roleMiddleware('doctor', 'admin'),
   staffController.getStaffByDoctor.bind(staffController)
 );
 
