@@ -1,7 +1,7 @@
 import Appointment, { IAppointment } from '../models/Appointment';
 import DoctorProfile from '../models/DoctorProfile';
 import User from '../models/User';
-import { NotFoundError, ValidationError, ConflictError } from '../utils/errors';
+import { NotFoundError, ValidationError } from '../utils/errors';
 
 export interface CreateAppointmentData {
   patientId?: string;

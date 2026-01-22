@@ -20,8 +20,7 @@ const validateDoctorProfile = (
       designation,
       workingHours,
       consultationType,
-      appointmentDuration,
-      languages
+      appointmentDuration
     } = req.body;
 
     // Required fields

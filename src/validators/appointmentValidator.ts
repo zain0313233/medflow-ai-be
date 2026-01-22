@@ -79,7 +79,7 @@ export const validateAppointment = (req: Request, res: Response, next: NextFunct
 };
 
 export const validateVoiceAppointment = (req: Request, res: Response, next: NextFunction) => {
-  const { doctorId, appointmentDate, appointmentTime, consultationType, patientName, patientPhone } = req.body;
+  const { patientName, patientPhone } = req.body;
   const errors: string[] = [];
 
   // All regular appointment validations

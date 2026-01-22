@@ -501,7 +501,7 @@ class RetellFunctionsController {
           get_available_doctors: 'POST /api/retell/get-available-doctors'
         }
       });
-    } catch (error: any) {
+    } catch {
       res.status(500).json({
         success: false,
         message: 'Health check failed'

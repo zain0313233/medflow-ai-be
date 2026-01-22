@@ -169,7 +169,8 @@ class UserService {
 
     // Remove password from response
     const userResponse = user.toObject();
-    const { password: pwd, ...userWithoutPassword } = userResponse;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _pwd, ...userWithoutPassword } = userResponse;
 
     return { token, user: userWithoutPassword };
   }
@@ -255,7 +256,8 @@ class UserService {
 
     // Remove password from response
     const userResponse = user.toObject();
-    const { password: _pwd, ...userWithoutPassword } = userResponse;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: __pwd, ...userWithoutPassword } = userResponse;
 
     return { token, user: userWithoutPassword };
   }

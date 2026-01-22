@@ -126,7 +126,7 @@ export const validateUpdateProfile = (
   next: NextFunction
 ) => {
   try {
-    const { phone, gender, dateOfBirth, firstName, lastName } = req.body;
+    const { gender, dateOfBirth, firstName, lastName } = req.body;
 
     if (gender) {
       const validGenders = ['male', 'female', 'other'];

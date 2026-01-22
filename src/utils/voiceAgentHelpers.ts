@@ -47,7 +47,7 @@ export function parseRelativeDate(dateStr: string): string {
     if (!isNaN(parsed.getTime())) {
       return parsed.toISOString().split('T')[0];
     }
-  } catch (e) {
+  } catch {
     // Return as-is if can't parse
   }
   

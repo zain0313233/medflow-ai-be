@@ -36,7 +36,7 @@ export const apiKeyAuth = (allowedKeys: string[]) => {
               isValidKey = true;
               break;
             }
-          } catch (error) {
+          } catch {
             // Continue to next key if comparison fails
             continue;
           }
@@ -203,7 +203,7 @@ export const apiKeyOrJWT = (allowedApiKeys: string[], allowedRoles: string[] = [
               isValidKey = true;
               break;
             }
-          } catch (error) {
+          } catch {
             continue;
           }
         }
@@ -220,6 +220,7 @@ export const apiKeyOrJWT = (allowedApiKeys: string[], allowedRoles: string[] = [
 
     if (token) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { verifyToken } = require('../utils/jwt');
         const decoded = verifyToken(token);
         req.user = decoded;
@@ -236,7 +237,7 @@ export const apiKeyOrJWT = (allowedApiKeys: string[], allowedRoles: string[] = [
 
         // Valid JWT, allow access
         return next();
-      } catch (error: any) {
+      } catch {
         // JWT verification failed, continue to rejection
       }
     }

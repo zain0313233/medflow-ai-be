@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { ForbiddenError } from '../utils/errors';
 
 /**
  * Middleware to check if doctor/staff has completed their profile

@@ -57,7 +57,7 @@ app.use((req, res) => {
 });
 
 // Global Error Handler - Must be LAST
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response) => {
   console.error('Error:', err);
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
