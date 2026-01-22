@@ -19,6 +19,9 @@ export interface IUser extends Document {
   isActive: boolean;
   isEmailVerified: boolean;
   emailVerificationToken?: string;
+  emailOTP?: string;
+  emailOTPExpires?: Date;
+  emailOTPAttempts?: number;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   clinicId?: mongoose.Schema.Types.ObjectId;
@@ -95,6 +98,12 @@ const userSchema: Schema<IUser> = new Schema(
       default: false
     },
     emailVerificationToken: String,
+    emailOTP: String,
+    emailOTPExpires: Date,
+    emailOTPAttempts: {
+      type: Number,
+      default: 0
+    },
     passwordResetToken: String,
     passwordResetExpires: Date,
     

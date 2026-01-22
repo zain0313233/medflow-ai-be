@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import appointmentController from '../controllers/appointmentController';
 import { authMiddleware, roleMiddleware, optionalAuth } from '../middlewares/authMiddleware';
+import { appointmentBookingAuth } from '../middlewares/apiKeyMiddleware';
 import { requireProfileCompletion } from '../middlewares/profileCompletionMiddleware';
 import { 
   validateAppointment, 
@@ -12,18 +13,20 @@ import {
 
 const router = Router();
 
-// Public routes (no authentication required)
+// Secured routes - Require API key (Retell/Voice Agent) OR Admin JWT
 
-// Create appointment via voice agent
+// Create appointment via voice agent - SECURED
 router.post(
   '/voice-booking',
+  appointmentBookingAuth,
   validateVoiceAppointment,
   appointmentController.createVoiceAppointment.bind(appointmentController)
 );
 
-// Get available slots for a doctor (public for voice agent)
+// Get available slots for a doctor - SECURED
 router.get(
   '/slots/:doctorId/:date',
+  appointmentBookingAuth,
   validateObjectId('doctorId'),
   validateDateParam,
   appointmentController.getAvailableSlots.bind(appointmentController)

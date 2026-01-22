@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import voiceAgentController from '../controllers/voiceAgentController';
 import retellFunctionsController from '../controllers/retellFunctionsController';
+import { voiceAgentAuth } from '../middlewares/apiKeyMiddleware';
 
 const router = Router();
+
+// Health check - Public (no auth needed for frontend to check status)
+router.get('/health', voiceAgentController.healthCheck.bind(voiceAgentController));
+
+// Apply API key authentication to all other voice agent routes
+router.use(voiceAgentAuth);
 
 // Health check
 router.get('/health', voiceAgentController.healthCheck.bind(voiceAgentController));

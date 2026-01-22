@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 
 class RetailAIController {
-  private agentId = 'agent_41b2fe861b141729747b0c151d';
+  private agentId = process.env.RETAIL_AI_AGENT_ID;
   private apiKey = process.env.RETAIL_AI_API_KEY; // Add this to your .env file
 
   // Trigger a call to your Retail AI agent

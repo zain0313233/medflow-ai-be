@@ -85,9 +85,12 @@ class DoctorController {
 
       const profile = await doctorService.getProfileByUserId(id);
 
+      // Filter data based on user role
+      const filteredProfile = this.filterDoctorData(profile, req.user?.role);
+
       res.status(200).json({
         success: true,
-        data: profile
+        data: filteredProfile
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
@@ -108,15 +111,85 @@ class DoctorController {
         { specialization: specialization as string }
       );
 
+      // Filter data based on user role
+      const filteredProfiles = result.profiles.map(profile => 
+        this.filterDoctorData(profile, req.user?.role)
+      );
+
       res.status(200).json({
         success: true,
-        data: result
+        data: {
+          profiles: filteredProfiles,
+          total: result.total,
+          pages: result.pages
+        }
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Failed to fetch profiles'
       });
+    }
+  }
+
+  /**
+   * Filter doctor profile data based on user role
+   * Patients see limited info, Admins see everything except sensitive data
+   */
+  private filterDoctorData(profile: any, userRole?: string) {
+    if (!profile) return null;
+
+    const profileObj = profile.toObject ? profile.toObject() : profile;
+    const userId = profileObj.userId;
+
+    // Data for patients (public view)
+    const patientView = {
+      _id: profileObj._id,
+      userId: {
+        _id: userId?._id,
+        firstName: userId?.firstName,
+        lastName: userId?.lastName,
+        profileImage: userId?.profileImage
+      },
+      specialization: profileObj.specialization,
+      experienceYears: profileObj.experienceYears,
+      designation: profileObj.designation,
+      workingDays: profileObj.workingDays,
+      workingHours: profileObj.workingHours,
+      consultationType: profileObj.consultationType,
+      appointmentDuration: profileObj.appointmentDuration,
+      bio: profileObj.bio,
+      languages: profileObj.languages,
+      clinic: profileObj.clinic
+    };
+
+    // Data for admins (more info but not sensitive)
+    const adminView = {
+      ...patientView,
+      gender: profileObj.gender,
+      dob: profileObj.dob,
+      photo: profileObj.photo,
+      licenseNumber: profileObj.licenseNumber,
+      licenseAuthority: profileObj.licenseAuthority,
+      licenseExpiry: profileObj.licenseExpiry,
+      breakTimes: profileObj.breakTimes,
+      profileCompleted: profileObj.profileCompleted,
+      createdAt: profileObj.createdAt,
+      updatedAt: profileObj.updatedAt,
+      userId: {
+        ...patientView.userId,
+        email: userId?.email,
+        phone: userId?.phone
+      }
+    };
+
+    // Return based on role
+    switch (userRole) {
+      case 'admin':
+        return adminView;
+      case 'patient':
+      default:
+        return patientView;
     }
   }
 

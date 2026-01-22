@@ -16,7 +16,7 @@ interface VoiceAgentWebhookData {
   event: 'appointment_request' | 'appointment_confirmation' | 'appointment_cancellation';
   callId: string;
   timestamp: string;
-  agentId?: string; // Your agent ID: agent_41b2fe861b141729747b0c151d
+  agentId?: string; 
   patient: {
     name: string;
     phone: string;
@@ -150,7 +150,7 @@ class WebhookController {
       const voiceCallData = {
         // Call Identity
         callId: call?.call_id || `call_${Date.now()}`,
-        agentId: call?.agent_id || 'agent_41b2fe861b141729747b0c151d',
+        agentId: call?.agent_id || 'agent_8eec7ec5373d0b2d56347fd0e8',
         
         // Call Outcome
         sessionOutcome: analysis?.call_successful ? 'Successful' : 'Unsuccessful',
@@ -365,7 +365,7 @@ class WebhookController {
           confidence: conversation.confidence,
           intent: conversation.intent,
           timestamp: webhookData.timestamp,
-          agentId: webhookData.agentId || 'agent_41b2fe861b141729747b0c151d'
+          agentId: webhookData.agentId || 'agent_8eec7ec5373d0b2d56347fd0e8'
         }
       };
 
