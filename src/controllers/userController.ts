@@ -19,13 +19,63 @@ class UserController {
 
       res.status(201).json({
         success: true,
-        message: 'User registered successfully',
-        data: result
+        message: result.message,
+        data: {
+          userId: result.userId,
+          email: result.email
+        }
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({
         success: false,
         message: error.message || 'Signup failed'
+      });
+    }
+  }
+
+  // Verify OTP
+  async verifyOTP(req: Request, res: Response) {
+    try {
+      const { userId, otp } = req.body;
+
+      if (!userId || !otp) {
+        throw new ValidationError('User ID and OTP are required');
+      }
+
+      const result = await userService.verifyOTP(userId, otp);
+
+      res.status(200).json({
+        success: true,
+        message: 'Email verified successfully',
+        data: result
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'OTP verification failed'
+      });
+    }
+  }
+
+  // Resend OTP
+  async resendOTP(req: Request, res: Response) {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        throw new ValidationError('User ID is required');
+      }
+
+      const result = await userService.resendOTP(userId);
+
+      res.status(200).json({
+        success: true,
+        message: result.message
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Failed to resend OTP'
       });
     }
   }

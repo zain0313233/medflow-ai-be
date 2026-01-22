@@ -7,6 +7,12 @@ import {
   NotFoundError
 } from '../utils/errors';
 import crypto from 'crypto';
+import emailService from './emailService';
+
+// Generate 6-digit OTP
+const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 export interface SignupPayload {
   email: string;
@@ -32,9 +38,15 @@ export interface AuthResponse {
   user: Partial<IUser>;
 }
 
+export interface SignupResponse {
+  userId: string;
+  email: string;
+  message: string;
+}
+
 class UserService {
   // Signup a new user
-  async signup(payload: SignupPayload): Promise<AuthResponse> {
+  async signup(payload: SignupPayload): Promise<SignupResponse> {
     const {
       email,
       password,
@@ -64,17 +76,88 @@ class UserService {
       throw new ConflictError('Email already registered');
     }
 
-    // Create new user
+    // Generate OTP
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Create new user (not verified yet)
     const user = new User({
       email: email.toLowerCase(),
       password,
       firstName,
       lastName,
       role,
+      isEmailVerified: false,
+      emailOTP: otp,
+      emailOTPExpires: otpExpires,
+      emailOTPAttempts: 0,
       ...rest
     });
 
     await user.save();
+
+    // Send OTP email
+    try {
+      await emailService.sendOTPEmail(user.email, otp, user.firstName);
+      console.log(`✅ OTP sent to ${user.email}: ${otp}`); // For development
+    } catch (error) {
+      console.error('Failed to send OTP email:', error);
+      // Don't fail signup if email fails, user can resend
+    }
+
+    return {
+      userId: user._id.toString(),
+      email: user.email,
+      message: 'OTP sent to your email. Please verify to continue.'
+    };
+  }
+
+  // Verify OTP
+  async verifyOTP(userId: string, otp: string): Promise<AuthResponse> {
+    const user = await User.findById(userId).select('+password');
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      throw new ValidationError('Email already verified');
+    }
+
+    if (!user.emailOTP || !user.emailOTPExpires) {
+      throw new ValidationError('No OTP found. Please request a new one.');
+    }
+
+    // Check if OTP expired
+    if (new Date() > user.emailOTPExpires) {
+      throw new UnauthorizedError('OTP expired. Please request a new one.');
+    }
+
+    // Check attempts
+    if (user.emailOTPAttempts && user.emailOTPAttempts >= 3) {
+      throw new UnauthorizedError('Too many failed attempts. Please request a new OTP.');
+    }
+
+    // Verify OTP
+    if (user.emailOTP !== otp) {
+      user.emailOTPAttempts = (user.emailOTPAttempts || 0) + 1;
+      await user.save();
+      throw new UnauthorizedError('Invalid OTP');
+    }
+
+    // OTP is valid - verify email
+    user.isEmailVerified = true;
+    user.emailOTP = undefined;
+    user.emailOTPExpires = undefined;
+    user.emailOTPAttempts = 0;
+    await user.save();
+
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail(user.email, user.firstName);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
 
     // Generate token
     const token = generateToken({
@@ -89,6 +172,39 @@ class UserService {
     const { password: pwd, ...userWithoutPassword } = userResponse;
 
     return { token, user: userWithoutPassword };
+  }
+
+  // Resend OTP
+  async resendOTP(userId: string): Promise<{ message: string }> {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      throw new ValidationError('Email already verified');
+    }
+
+    // Generate new OTP
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.emailOTP = otp;
+    user.emailOTPExpires = otpExpires;
+    user.emailOTPAttempts = 0;
+    await user.save();
+
+    // Send OTP email
+    try {
+      await emailService.sendOTPEmail(user.email, otp, user.firstName);
+      console.log(`✅ OTP resent to ${user.email}: ${otp}`); // For development
+    } catch (error) {
+      console.error('Failed to send OTP email:', error);
+      throw new Error('Failed to send OTP email');
+    }
+
+    return { message: 'OTP sent to your email' };
   }
 
   // Login user
@@ -107,6 +223,11 @@ class UserService {
 
     if (!user) {
       throw new UnauthorizedError('Invalid email or password');
+    }
+
+    // Check if email is verified
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedError('Please verify your email before logging in');
     }
 
     // Check if user is active

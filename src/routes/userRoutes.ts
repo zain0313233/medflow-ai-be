@@ -14,6 +14,8 @@ const router = Router();
 
 // Public routes
 router.post('/signup', validateSignup, userController.signup.bind(userController));
+router.post('/verify-otp', userController.verifyOTP.bind(userController));
+router.post('/resend-otp', userController.resendOTP.bind(userController));
 router.post('/login', validateLogin, userController.login.bind(userController));
 router.post('/request-password-reset', validateEmail, userController.requestPasswordReset.bind(userController));
 router.post('/reset-password', validatePasswordReset, userController.resetPassword.bind(userController));
