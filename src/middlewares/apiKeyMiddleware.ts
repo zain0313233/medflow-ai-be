@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { Retell } from 'retell-sdk';
+import { authMiddleware } from './authMiddleware';
 
 /**
  * API Key Authentication Middleware
@@ -63,16 +65,16 @@ export const apiKeyAuth = (allowedKeys: string[]) => {
 
 /**
  * Retell Signature Verification Middleware
- * Verifies that webhook requests actually come from Retell AI
+ * Verifies that webhook requests actually come from Retell AI using official SDK
  */
 export const verifyRetellSignature = (req: Request, res: Response, next: NextFunction) => {
   try {
     const signature = req.headers['x-retell-signature'] as string;
-    const retellSecret = process.env.RETELL_WEBHOOK_SECRET;
+    const retellApiKey = process.env.RETELL_API_KEY;
 
-    // If no secret is configured, log warning but allow (for development)
-    if (!retellSecret) {
-      console.warn('⚠️  RETELL_WEBHOOK_SECRET not configured. Skipping signature verification.');
+    // If no API key is configured, log warning but allow (for development)
+    if (!retellApiKey) {
+      console.warn('⚠️  RETELL_API_KEY not configured. Skipping signature verification.');
       return next();
     }
 
@@ -84,32 +86,17 @@ export const verifyRetellSignature = (req: Request, res: Response, next: NextFun
       });
     }
 
-    // Get the raw body (we need to verify the exact bytes sent)
+    // Use official Retell SDK to verify the signature
     const payload = JSON.stringify(req.body);
-
-    // Calculate expected signature using HMAC-SHA256
-    const expectedSignature = crypto
-      .createHmac('sha256', retellSecret)
-      .update(payload)
-      .digest('hex');
-
-    // Ensure both signatures are the same length before comparison
-    if (signature.length !== expectedSignature.length) {
-      console.error(`Signature length mismatch: received ${signature.length}, expected ${expectedSignature.length}`);
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid Retell signature',
-        error: 'Signature format mismatch'
-      });
-    }
-
-    // Compare signatures (constant-time comparison)
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(signature, 'hex'),
-      Buffer.from(expectedSignature, 'hex')
+    
+    const isValid = Retell.verify(
+      payload,
+      retellApiKey,
+      signature
     );
 
     if (!isValid) {
+      console.error('❌ Invalid Retell signature');
       return res.status(403).json({
         success: false,
         message: 'Invalid Retell signature',
@@ -117,6 +104,7 @@ export const verifyRetellSignature = (req: Request, res: Response, next: NextFun
       });
     }
 
+    console.log('✅ Retell signature verified successfully');
     // Signature is valid, proceed
     next();
   } catch (error: any) {
@@ -134,10 +122,10 @@ export const verifyRetellSignature = (req: Request, res: Response, next: NextFun
  * Checks both API key and signature
  */
 export const retellAuth = (req: Request, res: Response, next: NextFunction) => {
-  const retellApiKey = process.env.RETELL_API_KEY_INCOMING;
+  const retellApiKey = process.env.RETELL_API_KEY;
 
   if (!retellApiKey) {
-    console.warn('⚠️  RETELL_API_KEY_INCOMING not configured. Skipping API key check.');
+    console.warn('⚠️  RETELL_API_KEY not configured. Skipping API key check.');
     return verifyRetellSignature(req, res, next);
   }
 
@@ -267,7 +255,7 @@ export const apiKeyOrJWT = (allowedApiKeys: string[], allowedRoles: string[] = [
  * Allows Retell agent (API key) or Admin users (JWT)
  */
 export const appointmentBookingAuth = (req: Request, res: Response, next: NextFunction) => {
-  const retellKey = process.env.RETELL_API_KEY_INCOMING;
+  const retellKey = process.env.RETELL_API_KEY;
   const voiceAgentKey = process.env.VOICE_AGENT_API_KEY;
   
   const allowedKeys = [retellKey, voiceAgentKey].filter(Boolean) as string[];
