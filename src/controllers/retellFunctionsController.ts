@@ -308,6 +308,17 @@ class RetellFunctionsController {
         time,
         reason
       } = args;
+      
+      // Extract call_id and metadata from request (Retell includes this)
+      const callId = req.body.call_id || req.body.callId;
+      const metadata = req.body.metadata || {};
+      const patientId = metadata.patientId; // ✅ Get patientId from metadata
+      
+      console.log('📞 book_appointment called');
+      console.log('   Call ID:', callId);
+      console.log('   Patient ID from metadata:', patientId);
+      console.log('   Patient Name:', patient_name);
+      console.log('   Phone:', phone_number);
 
       // Validate required fields
       if (!patient_name || !phone_number || !doctor_id || !date || !time || !reason) {
@@ -344,6 +355,16 @@ class RetellFunctionsController {
         });
       }
 
+      // ✅ Get patient email if patientId exists
+      let patientEmail;
+      if (patientId) {
+        const patient = await User.findById(patientId);
+        if (patient && patient.email) {
+          patientEmail = patient.email;
+          console.log('   Patient Email:', patientEmail);
+        }
+      }
+
       // Create appointment
       const appointmentData = {
         doctorId: doctor_id,
@@ -352,10 +373,16 @@ class RetellFunctionsController {
         consultationType: 'in-person' as const,
         patientName: patient_name.trim(),
         patientPhone: phone_number.trim(),
+        patientEmail: patientEmail, // ✅ Add patient email
+        patientId: patientId, // ✅ Add patient ID
         reasonForVisit: reason.trim(),
         bookingSource: 'voice_agent' as const,
         voiceAgentBooking: true,
-        status: 'confirmed' as const
+        status: 'confirmed' as const,
+        voiceAgentData: {
+          callId: callId,  // Save call ID so webhook can find this appointment
+          timestamp: new Date().toISOString()
+        }
       };
 
       const appointment = await appointmentService.createAppointment(appointmentData);

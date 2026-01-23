@@ -2,6 +2,7 @@ import Appointment, { IAppointment } from '../models/Appointment';
 import DoctorProfile from '../models/DoctorProfile';
 import User from '../models/User';
 import { NotFoundError, ValidationError } from '../utils/errors';
+import googleCalendarService from './googleCalendarService';
 
 export interface CreateAppointmentData {
   patientId?: string;
@@ -114,7 +115,11 @@ class AppointmentService {
           { path: 'doctorId', select: 'firstName lastName email specialization' },
           { path: 'patientId', select: 'firstName lastName email phone' }
         ]);
+        
+        // 🆕 Create Google Calendar event for non-voice bookings (they have complete data)
+        await this.createCalendarEventForAppointment(appointment);
       }
+      // Note: Voice agent bookings will get calendar event after webhook updates with patientId
 
       return appointment;
     } catch (error: any) {
@@ -422,6 +427,71 @@ class AppointmentService {
       return appointment;
     } catch (error: any) {
       throw error;
+    }
+  }
+
+  // 🆕 Create Google Calendar event for appointment
+  private async createCalendarEventForAppointment(appointment: IAppointment): Promise<void> {
+    try {
+      // Get patient email
+      let patientEmail = appointment.patientEmail;
+      
+      // If patientId exists, get email from patient profile
+      if (appointment.patientId && !patientEmail) {
+        const patient = await User.findById(appointment.patientId);
+        if (patient && patient.email) {
+          patientEmail = patient.email;
+        }
+      }
+
+      // Skip if no patient email
+      if (!patientEmail) {
+        console.log('⚠️ No patient email found, skipping calendar event creation');
+        return;
+      }
+
+      // Get doctor profile
+      const doctorProfile = await DoctorProfile.findOne({ userId: appointment.doctorId });
+      if (!doctorProfile) {
+        console.log('⚠️ Doctor profile not found, skipping calendar event');
+        return;
+      }
+
+      // Get doctor email
+      const doctor = await User.findById(appointment.doctorId);
+      if (!doctor || !doctor.email) {
+        console.log('⚠️ Doctor email not found, skipping calendar event');
+        return;
+      }
+
+      // Create calendar event
+      const result = await googleCalendarService.createAppointmentEvent(doctorProfile, {
+        patientName: appointment.patientName || 'Patient',
+        patientEmail,
+        doctorName: appointment.doctorName || doctor.firstName + ' ' + doctor.lastName,
+        doctorEmail: doctor.email,
+        appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+        appointmentTime: appointment.appointmentTime,
+        duration: appointment.duration || 30,
+        reasonForVisit: appointment.reasonForVisit || 'General consultation',
+        consultationType: appointment.consultationType,
+      });
+
+      if (result.success) {
+        console.log('✅ Calendar event created successfully');
+        console.log('📅 Google Meet link:', result.meetLink);
+        
+        // Optionally save the meet link and event ID to appointment
+        appointment.notes = appointment.notes 
+          ? `${appointment.notes}\n\nGoogle Meet: ${result.meetLink}`
+          : `Google Meet: ${result.meetLink}`;
+        await appointment.save();
+      } else {
+        console.log('⚠️ Failed to create calendar event:', result.error);
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating calendar event:', error.message);
+      // Don't throw error - calendar creation is optional
     }
   }
 }
