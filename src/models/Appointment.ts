@@ -15,6 +15,7 @@ export interface IAppointment extends Document {
   patientName?: string;
   patientEmail?: string;
   doctorName?: string; // For voice bookings (from knowledge base)
+  confirmationNumber?: string; // 🆕 Confirmation number (e.g., NOVA-20260125-ABC)
   bookingSource?: 'web' | 'voice_agent' | 'phone' | 'admin';
   voiceCallId?: mongoose.Schema.Types.ObjectId; // Reference to VoiceCall
   voiceAgentBooking?: boolean; // Flag to identify voice agent bookings
@@ -116,6 +117,11 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     doctorName: {
       type: String,
       maxlength: [100, 'Doctor name cannot exceed 100 characters']
+    },
+    confirmationNumber: {
+      type: String,
+      maxlength: [50, 'Confirmation number cannot exceed 50 characters'],
+      index: true // 🆕 Index for fast search
     },
     bookingSource: {
       type: String,

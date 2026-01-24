@@ -34,4 +34,25 @@ router.post(
   retellFunctionsController.getAvailableDoctors.bind(retellFunctionsController)
 );
 
+// Custom Function 4: Get appointment by confirmation number - requires Retell auth
+router.post(
+  '/get-appointment-by-confirmation',
+  retellAuth,
+  retellFunctionsController.getAppointmentByConfirmation.bind(retellFunctionsController)
+);
+
+// Custom Function 5: Cancel appointment - requires Retell auth
+router.post(
+  '/cancel-appointment',
+  retellAuth,
+  retellFunctionsController.cancelAppointment.bind(retellFunctionsController)
+);
+
+// Custom Function 6: Reschedule appointment - requires Retell auth
+router.post(
+  '/reschedule-appointment',
+  retellAuth,
+  retellFunctionsController.rescheduleAppointment.bind(retellFunctionsController)
+);
+
 export default router;

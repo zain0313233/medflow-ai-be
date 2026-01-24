@@ -514,6 +514,293 @@ class RetellFunctionsController {
   }
 
   /**
+   * Custom Function 4: get_appointment_by_confirmation
+   * Get appointment details by confirmation number
+   * Called when patient wants to cancel or reschedule
+   */
+  async getAppointmentByConfirmation(req: Request, res: Response) {
+    try {
+      console.log('📞 get_appointment_by_confirmation called');
+
+      // Verify Retell signature (skip in development)
+      if (process.env.NODE_ENV === 'production') {
+        if (!this.verifyRetellSignature(req)) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid signature'
+          });
+        }
+      }
+
+      const args = req.body.args || req.body;
+      const { confirmation_number } = args;
+
+      if (!confirmation_number) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confirmation number is required'
+        });
+      }
+
+      console.log('🔍 Searching for appointment:', confirmation_number);
+
+      // Import Appointment model
+      const Appointment = require('../models/Appointment').default;
+
+      // Find appointment by confirmation number
+      const appointment = await Appointment.findOne({
+        confirmationNumber: confirmation_number,
+        status: { $in: ['confirmed', 'pending'] } // Only active appointments
+      });
+
+      if (!appointment) {
+        return res.status(200).json({
+          success: false,
+          found: false,
+          message: 'No appointment found with this confirmation number'
+        });
+      }
+
+      // Get doctor details
+      const doctor = await User.findById(appointment.doctorId);
+
+      console.log('✅ Appointment found:', appointment._id);
+
+      return res.status(200).json({
+        success: true,
+        found: true,
+        message: 'Appointment found',
+        appointment: {
+          id: appointment._id,
+          confirmation_number: appointment.confirmationNumber,
+          patient_name: appointment.patientName,
+          doctor_name: appointment.doctorName || (doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'),
+          date: appointment.appointmentDate.toISOString().split('T')[0],
+          time: appointment.appointmentTime,
+          reason: appointment.reasonForVisit,
+          consultation_type: appointment.consultationType,
+          status: appointment.status
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Get appointment by confirmation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get appointment',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Custom Function 5: cancel_appointment
+   * Cancel an appointment by confirmation number
+   * Updates status to cancelled, frees up the time slot
+   */
+  async cancelAppointment(req: Request, res: Response) {
+    try {
+      console.log('📞 cancel_appointment called');
+
+      // Verify Retell signature (skip in development)
+      if (process.env.NODE_ENV === 'production') {
+        if (!this.verifyRetellSignature(req)) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid signature'
+          });
+        }
+      }
+
+      const args = req.body.args || req.body;
+      const { confirmation_number, reason } = args;
+
+      if (!confirmation_number) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confirmation number is required'
+        });
+      }
+
+      console.log('🗑️ Cancelling appointment:', confirmation_number);
+
+      // Import Appointment model
+      const Appointment = require('../models/Appointment').default;
+
+      // Find appointment
+      const appointment = await Appointment.findOne({
+        confirmationNumber: confirmation_number,
+        status: { $in: ['confirmed', 'pending'] }
+      });
+
+      if (!appointment) {
+        return res.status(200).json({
+          success: false,
+          message: 'No active appointment found with this confirmation number'
+        });
+      }
+
+      // Cancel appointment (update status, don't delete)
+      appointment.status = 'cancelled';
+      appointment.notes = appointment.notes 
+        ? `${appointment.notes}\n\nCancelled: ${reason || 'Patient requested cancellation'}`
+        : `Cancelled: ${reason || 'Patient requested cancellation'}`;
+      
+      await appointment.save();
+
+      console.log('✅ Appointment cancelled:', appointment._id);
+
+      // TODO: Send cancellation email to patient
+
+      return res.status(200).json({
+        success: true,
+        message: 'Appointment cancelled successfully',
+        appointment: {
+          confirmation_number: appointment.confirmationNumber,
+          patient_name: appointment.patientName,
+          doctor_name: appointment.doctorName,
+          date: appointment.appointmentDate.toISOString().split('T')[0],
+          time: appointment.appointmentTime,
+          status: 'cancelled'
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Cancel appointment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to cancel appointment',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Custom Function 6: reschedule_appointment
+   * Reschedule an appointment to a new date/time/doctor
+   * Frees old slot, occupies new slot
+   */
+  async rescheduleAppointment(req: Request, res: Response) {
+    try {
+      console.log('📞 reschedule_appointment called');
+
+      // Verify Retell signature (skip in development)
+      if (process.env.NODE_ENV === 'production') {
+        if (!this.verifyRetellSignature(req)) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid signature'
+          });
+        }
+      }
+
+      const args = req.body.args || req.body;
+      const { confirmation_number, new_date, new_time, new_doctor_id } = args;
+
+      if (!confirmation_number || !new_date || !new_time) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confirmation number, new date, and new time are required'
+        });
+      }
+
+      console.log('🔄 Rescheduling appointment:', {
+        confirmation_number,
+        new_date,
+        new_time,
+        new_doctor_id
+      });
+
+      // Import Appointment model
+      const Appointment = require('../models/Appointment').default;
+
+      // Find appointment
+      const appointment = await Appointment.findOne({
+        confirmationNumber: confirmation_number,
+        status: { $in: ['confirmed', 'pending'] }
+      });
+
+      if (!appointment) {
+        return res.status(200).json({
+          success: false,
+          message: 'No active appointment found with this confirmation number'
+        });
+      }
+
+      // Store old details
+      const oldDate = appointment.appointmentDate.toISOString().split('T')[0];
+      const oldTime = appointment.appointmentTime;
+      const oldDoctorId = appointment.doctorId;
+
+      // Determine which doctor to use
+      const targetDoctorId = new_doctor_id || appointment.doctorId;
+
+      // Check if new slot is available
+      const slots = await appointmentService.getAvailableSlots(targetDoctorId.toString(), new_date);
+      const requestedSlot = slots.find(slot => slot.time === new_time);
+
+      if (!requestedSlot || !requestedSlot.available) {
+        return res.status(200).json({
+          success: false,
+          message: 'The requested time slot is not available',
+          alternative_slots: slots
+            .filter(slot => slot.available)
+            .map(slot => slot.time)
+            .slice(0, 5)
+        });
+      }
+
+      // Update appointment with new details
+      appointment.appointmentDate = new Date(new_date);
+      appointment.appointmentTime = new_time;
+      
+      if (new_doctor_id) {
+        appointment.doctorId = new_doctor_id;
+        const newDoctor = await User.findById(new_doctor_id);
+        if (newDoctor) {
+          appointment.doctorName = `Dr. ${newDoctor.firstName} ${newDoctor.lastName}`;
+        }
+      }
+
+      appointment.notes = appointment.notes 
+        ? `${appointment.notes}\n\nRescheduled from ${oldDate} ${oldTime} to ${new_date} ${new_time}`
+        : `Rescheduled from ${oldDate} ${oldTime} to ${new_date} ${new_time}`;
+
+      await appointment.save();
+
+      console.log('✅ Appointment rescheduled:', {
+        from: `${oldDate} ${oldTime}`,
+        to: `${new_date} ${new_time}`
+      });
+
+      // TODO: Send reschedule email to patient
+
+      return res.status(200).json({
+        success: true,
+        message: 'Appointment rescheduled successfully',
+        appointment: {
+          confirmation_number: appointment.confirmationNumber,
+          patient_name: appointment.patientName,
+          doctor_name: appointment.doctorName,
+          old_date: oldDate,
+          old_time: oldTime,
+          new_date: new_date,
+          new_time: new_time,
+          status: appointment.status
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Reschedule appointment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to reschedule appointment',
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * Health check endpoint for Retell functions
    */
   async healthCheck(req: Request, res: Response) {
@@ -525,7 +812,10 @@ class RetellFunctionsController {
         functions: {
           check_availability: 'POST /api/retell/check-availability',
           book_appointment: 'POST /api/retell/book-appointment',
-          get_available_doctors: 'POST /api/retell/get-available-doctors'
+          get_available_doctors: 'POST /api/retell/get-available-doctors',
+          get_appointment_by_confirmation: 'POST /api/retell/get-appointment-by-confirmation',
+          cancel_appointment: 'POST /api/retell/cancel-appointment',
+          reschedule_appointment: 'POST /api/retell/reschedule-appointment'
         }
       });
     } catch {

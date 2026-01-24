@@ -10,6 +10,7 @@ import voiceAgentRoutes from "./routes/voiceAgentRoutes";
 import webhookRoutes from "./routes/webhookRoutes";
 import retailAIRoutes from "./routes/retailAIRoutes";
 import retellFunctionsRoutes from "./routes/retellFunctionsRoutes";
+import testCalendarRoutes from "./routes/testCalendarRoutes";
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use("/api/voice-agent", voiceAgentRoutes);
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/retail-ai", retailAIRoutes);
 app.use("/api/retell", retellFunctionsRoutes); // Retell custom functions
+app.use("/api/test", testCalendarRoutes); // Test endpoints
 
 // 404 Handler - Must be AFTER all routes
 app.use((req, res) => {
