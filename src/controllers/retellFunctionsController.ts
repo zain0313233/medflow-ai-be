@@ -574,6 +574,7 @@ class RetellFunctionsController {
           id: appointment._id,
           confirmation_number: appointment.confirmationNumber,
           patient_name: appointment.patientName,
+          doctor_id: appointment.doctorId, // ✅ Add doctor_id so agent can check availability
           doctor_name: appointment.doctorName || (doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'),
           date: appointment.appointmentDate.toISOString().split('T')[0],
           time: appointment.appointmentTime,
