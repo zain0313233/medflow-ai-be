@@ -11,6 +11,8 @@ import webhookRoutes from "./routes/webhookRoutes";
 import retailAIRoutes from "./routes/retailAIRoutes";
 import retellFunctionsRoutes from "./routes/retellFunctionsRoutes";
 import testCalendarRoutes from "./routes/testCalendarRoutes";
+import reminderRoutes from "./routes/reminderRoutes";
+import doctorStatusRoutes from "./routes/doctorStatusRoutes";
 
 const app = express();
 
@@ -49,6 +51,8 @@ app.use("/api/webhook", webhookRoutes);
 app.use("/api/retail-ai", retailAIRoutes);
 app.use("/api/retell", retellFunctionsRoutes); // Retell custom functions
 app.use("/api/test", testCalendarRoutes); // Test endpoints
+app.use("/api/reminders", reminderRoutes); // Appointment reminders
+app.use("/api/doctor-status", doctorStatusRoutes); // Doctor status & wait times
 
 // 404 Handler - Must be AFTER all routes
 app.use((req, res) => {

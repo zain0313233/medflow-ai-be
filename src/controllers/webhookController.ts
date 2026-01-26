@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import appointmentService from '../services/appointmentService';
 import VoiceCall from '../models/VoiceCall';
 import User from '../models/User';
+import Appointment from '../models/Appointment';
+import emailService from '../services/emailService';
+import googleCalendarService from '../services/googleCalendarService';
+import DoctorProfile from '../models/DoctorProfile';
 import {
   parseRelativeDate,
   parseTime,
@@ -93,7 +97,6 @@ class WebhookController {
           console.log('📅 Appointment booking detected, checking operation type...');
           
           try {
-            const Appointment = require('../models/Appointment').default;
             const bookingStatus = customData?.booking_status || '';
             
             // 🆕 DETECT OPERATION TYPE FROM booking_status
@@ -124,17 +127,16 @@ class WebhookController {
                 await voiceCall.save();
                 
                 // 📧 Send reschedule email
-                const emailService = require('../services/emailService').default;
                 if (appointment.patientEmail) {
                   await emailService.sendRescheduleEmail({
-                    patientName: appointment.patientName,
+                    patientName: appointment.patientName || 'Patient',
                     patientEmail: appointment.patientEmail,
                     doctorName: appointment.doctorName || 'Doctor',
                     appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
                     appointmentTime: appointment.appointmentTime,
                     reasonForVisit: appointment.reasonForVisit || 'General consultation',
                     consultationType: appointment.consultationType,
-                    confirmationNumber: appointment.confirmationNumber,
+                    confirmationNumber: appointment.confirmationNumber || 'N/A',
                     oldDate: oldDate,
                     oldTime: oldTime,
                     clinicAddress: 'Nova Health Clinic, Main Street',
@@ -170,17 +172,16 @@ class WebhookController {
                 await voiceCall.save();
                 
                 // 📧 Send cancellation email
-                const emailService = require('../services/emailService').default;
                 if (appointment.patientEmail) {
                   await emailService.sendCancellationEmail({
-                    patientName: appointment.patientName,
+                    patientName: appointment.patientName || 'Patient',
                     patientEmail: appointment.patientEmail,
                     doctorName: appointment.doctorName || 'Doctor',
                     appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
                     appointmentTime: appointment.appointmentTime,
                     reasonForVisit: appointment.reasonForVisit || 'General consultation',
                     consultationType: appointment.consultationType,
-                    confirmationNumber: appointment.confirmationNumber,
+                    confirmationNumber: appointment.confirmationNumber || 'N/A',
                     clinicAddress: 'Nova Health Clinic, Main Street',
                     clinicPhone: '+1234567890'
                   });
@@ -777,17 +778,16 @@ class WebhookController {
         
         try {
           await this.createCalendarEventForAppointment(appointment);
-        } catch (calendarError: any) {
+        } catch {
           console.log('⚠️ Calendar event failed, sending fallback email instead');
           
           // Fallback: Send simple email without calendar invite
-          const emailService = require('../services/emailService').default;
           
           // Generate confirmation number
           const confirmationNumber = `NOVA-${appointment.appointmentDate.toISOString().split('T')[0].replace(/-/g, '')}-${appointment._id.toString().slice(-3).toUpperCase()}`;
           
           await emailService.sendAppointmentConfirmationEmail({
-            patientName: appointment.patientName,
+            patientName: appointment.patientName || 'Patient',
             patientEmail: patientEmail,
             doctorName: appointment.doctorName || 'Doctor',
             appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
@@ -813,9 +813,6 @@ class WebhookController {
 
   // Create Google Calendar event for appointment
   private async createCalendarEventForAppointment(appointment: any) {
-    const googleCalendarService = require('../services/googleCalendarService').default;
-    const DoctorProfile = require('../models/DoctorProfile').default;
-    
     // Get doctor profile
     const doctorProfile = await DoctorProfile.findOne({ userId: appointment.doctorId });
     if (!doctorProfile) {

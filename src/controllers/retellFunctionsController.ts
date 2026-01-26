@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import appointmentService from '../services/appointmentService';
 import DoctorProfile from '../models/DoctorProfile';
 import User from '../models/User';
+import Appointment from '../models/Appointment';
 
 /**
  * Retell Custom Functions Controller
@@ -544,9 +545,6 @@ class RetellFunctionsController {
 
       console.log('🔍 Searching for appointment:', confirmation_number);
 
-      // Import Appointment model
-      const Appointment = require('../models/Appointment').default;
-
       // Find appointment by confirmation number
       const appointment = await Appointment.findOne({
         confirmationNumber: confirmation_number,
@@ -624,9 +622,6 @@ class RetellFunctionsController {
       }
 
       console.log('🗑️ Cancelling appointment:', confirmation_number);
-
-      // Import Appointment model
-      const Appointment = require('../models/Appointment').default;
 
       // Find appointment
       const appointment = await Appointment.findOne({
@@ -712,9 +707,6 @@ class RetellFunctionsController {
         new_doctor_id
       });
 
-      // Import Appointment model
-      const Appointment = require('../models/Appointment').default;
-
       // Find appointment
       const appointment = await Appointment.findOne({
         confirmationNumber: confirmation_number,
@@ -731,7 +723,6 @@ class RetellFunctionsController {
       // Store old details
       const oldDate = appointment.appointmentDate.toISOString().split('T')[0];
       const oldTime = appointment.appointmentTime;
-      const oldDoctorId = appointment.doctorId;
 
       // Determine which doctor to use
       const targetDoctorId = new_doctor_id || appointment.doctorId;
