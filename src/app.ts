@@ -13,6 +13,7 @@ import retellFunctionsRoutes from "./routes/retellFunctionsRoutes";
 import testCalendarRoutes from "./routes/testCalendarRoutes";
 import reminderRoutes from "./routes/reminderRoutes";
 import doctorStatusRoutes from "./routes/doctorStatusRoutes";
+import medicalDocumentRoutes from "./routes/medicalDocumentRoutes";
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use("/api/retell", retellFunctionsRoutes); // Retell custom functions
 app.use("/api/test", testCalendarRoutes); // Test endpoints
 app.use("/api/reminders", reminderRoutes); // Appointment reminders
 app.use("/api/doctor-status", doctorStatusRoutes); // Doctor status & wait times
+app.use("/api/medical-documents", medicalDocumentRoutes); // Medical documents with AI
 
 // 404 Handler - Must be AFTER all routes
 app.use((req, res) => {
