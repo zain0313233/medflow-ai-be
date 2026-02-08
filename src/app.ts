@@ -47,7 +47,10 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Retell-Signature"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Retell-Signature",
+    "X-API-Key",      // ✅ CRITICAL: Add this (Retell sends X-API-Key)
+    "x-api-key"       // ✅ Lowercase variant
+  ]
 }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
