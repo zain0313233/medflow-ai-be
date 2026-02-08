@@ -4,6 +4,7 @@ import MedicalDocument from '../models/MedicalDocument';
 import DocumentInsight, { IDocumentInsight } from '../models/DocumentInsight';
 
 // Initialize Gemini AI with v1 SDK
+// Using default (no apiVersion) as models are available on v1
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || '',
 });
@@ -48,19 +49,43 @@ export async function processMedicalDocument(documentId: string): Promise<IDocum
     // Create prompt based on document type
     const prompt = createPromptForDocumentType(document.type);
 
-    // Generate content using v1 SDK (correct structure)
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: prompt },
-            filePart,
+    // Generate content using v1 SDK with retry logic
+    // Using model alias to ensure compatibility
+    let response;
+    let retries = 3;
+    
+    while (retries > 0) {
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',  // Using available model from v1 API
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: prompt },
+                filePart,
+              ],
+            },
           ],
-        },
-      ],
-    });
+        });
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        if (error.status === 429 && retries > 1) {
+          // Rate limit hit, wait and retry
+          const retryDelay = error?.error?.details?.find((d: any) => d['@type']?.includes('RetryInfo'))?.retryDelay;
+          const delaySeconds = retryDelay ? parseFloat(retryDelay.replace('s', '')) : 5;
+          console.log(`Rate limit hit, retrying in ${delaySeconds}s... (${retries - 1} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+          retries--;
+        } else {
+          throw error; // Not a rate limit or out of retries
+        }
+      }
+    }
+    
+    if (!response) {
+      throw new Error('Failed to generate content after retries');
+    }
 
     const responseText = response.text;
     
