@@ -26,7 +26,7 @@ app.use(cors({
     // Get allowed origins from env or use defaults
     const allowedOrigins = process.env.FRONTEND_URL 
       ? process.env.FRONTEND_URL.split(',') 
-      : ["http://localhost:3000", "http://localhost:3001"];
+      : ["http://localhost:3000", "http://localhost:3001","https://medflow-ai-be.onrender.com"];
     
     // Allow Retell AI domains
     const retellDomains = [
