@@ -5,6 +5,7 @@ export interface IAppointment extends Document {
   doctorId: mongoose.Schema.Types.ObjectId;
   appointmentDate: Date;
   appointmentTime: string; // "14:30"
+  estimatedTime?: string; // 🆕 "14:45" (if doctor running late)
   duration: number; // in minutes
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
   consultationType: 'online' | 'in-person';
@@ -15,6 +16,12 @@ export interface IAppointment extends Document {
   patientName?: string;
   patientEmail?: string;
   doctorName?: string; // For voice bookings (from knowledge base)
+  confirmationNumber?: string; // Confirmation number (e.g., NOVA-20260125-ABC)
+  reminderSent?: boolean; // Flag to track if reminder email was sent
+  reminderSentAt?: Date; // Timestamp when reminder was sent
+  delayMinutes?: number; // 🆕 How many minutes delayed
+  delayNotified?: boolean; // 🆕 Has patient been notified of delay?
+  delayNotifiedAt?: Date; // 🆕 When was patient notified?
   bookingSource?: 'web' | 'voice_agent' | 'phone' | 'admin';
   voiceCallId?: mongoose.Schema.Types.ObjectId; // Reference to VoiceCall
   voiceAgentBooking?: boolean; // Flag to identify voice agent bookings
@@ -55,6 +62,10 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     appointmentTime: {
       type: String,
       required: [true, 'Appointment time is required'],
+      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format']
+    },
+    estimatedTime: {
+      type: String,
       match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format']
     },
     duration: {
@@ -116,6 +127,31 @@ const appointmentSchema: Schema<IAppointment> = new Schema(
     doctorName: {
       type: String,
       maxlength: [100, 'Doctor name cannot exceed 100 characters']
+    },
+    confirmationNumber: {
+      type: String,
+      maxlength: [50, 'Confirmation number cannot exceed 50 characters'],
+      index: true // 🆕 Index for fast search
+    },
+    reminderSent: {
+      type: Boolean,
+      default: false,
+      index: true // 🆕 Index for cron job queries
+    },
+    reminderSentAt: {
+      type: Date
+    },
+    delayMinutes: {
+      type: Number,
+      default: 0,
+      min: [0, 'Delay cannot be negative']
+    },
+    delayNotified: {
+      type: Boolean,
+      default: false
+    },
+    delayNotifiedAt: {
+      type: Date
     },
     bookingSource: {
       type: String,

@@ -26,6 +26,8 @@ export interface IDoctorProfile extends Document {
   bio?: string;
   languages: string[];
   profileCompleted: boolean;
+  googleCalendarId?: string; // Doctor's Google Calendar email
+  googleCalendarEnabled?: boolean; // Enable/disable calendar sync
   createdAt: Date;
   updatedAt: Date;
 }
@@ -130,6 +132,14 @@ const doctorProfileSchema: Schema<IDoctorProfile> = new Schema(
       default: ['English']
     },
     profileCompleted: {
+      type: Boolean,
+      default: false
+    },
+    googleCalendarId: {
+      type: String,
+      trim: true
+    },
+    googleCalendarEnabled: {
       type: Boolean,
       default: false
     }

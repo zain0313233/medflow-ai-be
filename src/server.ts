@@ -4,6 +4,7 @@ dotenv.config(); // Load environment variables first
 
 import app from "./app";
 import connectDB from "./config/db";
+import cronJobService from "./services/cronJobService";
 
 const PORT = process.env.PORT || 3001;
 
@@ -26,11 +27,29 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
   try {
     await connectDB();
 
+    // Start cron jobs for appointment reminders
+    cronJobService.start();
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`⏰ Cron jobs: ${cronJobService.getStatus().isRunning ? 'Running' : 'Stopped'}`);
     });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM signal received: closing HTTP server');
+      cronJobService.stop();
+      process.exit(0);
+    });
+
+    process.on('SIGINT', () => {
+      console.log('SIGINT signal received: closing HTTP server');
+      cronJobService.stop();
+      process.exit(0);
+    });
+
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

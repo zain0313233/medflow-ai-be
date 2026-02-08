@@ -10,15 +10,44 @@ import voiceAgentRoutes from "./routes/voiceAgentRoutes";
 import webhookRoutes from "./routes/webhookRoutes";
 import retailAIRoutes from "./routes/retailAIRoutes";
 import retellFunctionsRoutes from "./routes/retellFunctionsRoutes";
+import testCalendarRoutes from "./routes/testCalendarRoutes";
+import reminderRoutes from "./routes/reminderRoutes";
+import doctorStatusRoutes from "./routes/doctorStatusRoutes";
+import medicalDocumentRoutes from "./routes/medicalDocumentRoutes";
 
 const app = express();
 
 // Middlewares
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ["http://localhost:3000", "http://localhost:3001"],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
+    
+    // Get allowed origins from env or use defaults
+    const allowedOrigins = process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',') 
+      : ["http://localhost:3000", "http://localhost:3001"];
+    
+    // Allow Retell AI domains
+    const retellDomains = [
+      'https://api.retellai.com',
+      'https://retellai.com',
+      'https://app.retellai.com'
+    ];
+    
+    // Combine all allowed origins
+    const allAllowedOrigins = [...allowedOrigins, ...retellDomains];
+    
+    // Check if origin is allowed
+    if (allAllowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now (you can restrict later)
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Retell-Signature"]
 }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -47,6 +76,10 @@ app.use("/api/voice-agent", voiceAgentRoutes);
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/retail-ai", retailAIRoutes);
 app.use("/api/retell", retellFunctionsRoutes); // Retell custom functions
+app.use("/api/test", testCalendarRoutes); // Test endpoints
+app.use("/api/reminders", reminderRoutes); // Appointment reminders
+app.use("/api/doctor-status", doctorStatusRoutes); // Doctor status & wait times
+app.use("/api/medical-documents", medicalDocumentRoutes); // Medical documents with AI
 
 // 404 Handler - Must be AFTER all routes
 app.use((req, res) => {

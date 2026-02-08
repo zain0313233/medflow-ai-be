@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import appointmentService from '../services/appointmentService';
 import VoiceCall from '../models/VoiceCall';
 import User from '../models/User';
+import Appointment from '../models/Appointment';
+import emailService from '../services/emailService';
+import googleCalendarService from '../services/googleCalendarService';
+import DoctorProfile from '../models/DoctorProfile';
 import {
   parseRelativeDate,
   parseTime,
@@ -90,23 +94,199 @@ class WebhookController {
         console.log('📊 Custom Analysis Data:', JSON.stringify(customData, null, 2));
         
         if (customData?.appointment_booked === true) {
-          console.log('📅 Appointment booking detected, creating appointment...');
+          console.log('📅 Appointment booking detected, checking operation type...');
           
           try {
-            const appointment = await this.createAppointmentFromCall(call, voiceCall._id);
+            const bookingStatus = customData?.booking_status || '';
             
-            // Update voice call with appointment reference
-            voiceCall.appointmentId = appointment._id;
-            await voiceCall.save();
+            // 🆕 DETECT OPERATION TYPE FROM booking_status
+            const isReschedule = bookingStatus.toLowerCase().includes('rescheduled');
+            const isCancellation = bookingStatus.toLowerCase().includes('cancelled');
             
-            console.log(`✅ Appointment created and linked: ${appointment._id}`);
-            console.log(`   Patient: ${appointment.patientName}`);
-            console.log(`   Doctor: ${appointment.doctorName}`);
-            console.log(`   Date: ${appointment.appointmentDate}`);
-            console.log(`   Time: ${appointment.appointmentTime}`);
+            if (isReschedule && customData?.confirmation_number) {
+              // ✅ RESCHEDULE OPERATION - Find by confirmation number
+              console.log('🔄 Reschedule operation detected');
+              console.log('🔍 Finding appointment by confirmation number:', customData.confirmation_number);
+              
+              const appointment = await Appointment.findOne({
+                confirmationNumber: customData.confirmation_number
+              });
+              
+              if (appointment) {
+                console.log(`✅ Found appointment to reschedule: ${appointment._id}`);
+                
+                // Store old details for email
+                const oldDate = appointment.appointmentDate.toISOString().split('T')[0];
+                const oldTime = appointment.appointmentTime;
+                
+                // Update appointment with webhook data
+                await this.updateAppointmentWithWebhookData(appointment._id, call, voiceCall._id);
+                
+                // Link to voice call
+                voiceCall.appointmentId = appointment._id;
+                await voiceCall.save();
+                
+                // 📧 Send reschedule email
+                if (appointment.patientEmail) {
+                  await emailService.sendRescheduleEmail({
+                    patientName: appointment.patientName || 'Patient',
+                    patientEmail: appointment.patientEmail,
+                    doctorName: appointment.doctorName || 'Doctor',
+                    appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+                    appointmentTime: appointment.appointmentTime,
+                    reasonForVisit: appointment.reasonForVisit || 'General consultation',
+                    consultationType: appointment.consultationType,
+                    confirmationNumber: appointment.confirmationNumber || 'N/A',
+                    oldDate: oldDate,
+                    oldTime: oldTime,
+                    clinicAddress: 'Nova Health Clinic, Main Street',
+                    clinicPhone: '+1234567890'
+                  });
+                  console.log('✅ Reschedule email sent');
+                } else {
+                  console.log('⚠️ No patient email, skipping reschedule email');
+                }
+                
+                console.log(`✅ Reschedule operation completed`);
+              } else {
+                console.log('⚠️ Appointment not found with confirmation number:', customData.confirmation_number);
+              }
+              
+            } else if (isCancellation && customData?.confirmation_number) {
+              // ✅ CANCELLATION OPERATION - Find by confirmation number
+              console.log('❌ Cancellation operation detected');
+              console.log('🔍 Finding appointment by confirmation number:', customData.confirmation_number);
+              
+              const appointment = await Appointment.findOne({
+                confirmationNumber: customData.confirmation_number
+              });
+              
+              if (appointment) {
+                console.log(`✅ Found appointment to cancel: ${appointment._id}`);
+                
+                // Update appointment with webhook data
+                await this.updateAppointmentWithWebhookData(appointment._id, call, voiceCall._id);
+                
+                // Link to voice call
+                voiceCall.appointmentId = appointment._id;
+                await voiceCall.save();
+                
+                // 📧 Send cancellation email
+                if (appointment.patientEmail) {
+                  await emailService.sendCancellationEmail({
+                    patientName: appointment.patientName || 'Patient',
+                    patientEmail: appointment.patientEmail,
+                    doctorName: appointment.doctorName || 'Doctor',
+                    appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+                    appointmentTime: appointment.appointmentTime,
+                    reasonForVisit: appointment.reasonForVisit || 'General consultation',
+                    consultationType: appointment.consultationType,
+                    confirmationNumber: appointment.confirmationNumber || 'N/A',
+                    clinicAddress: 'Nova Health Clinic, Main Street',
+                    clinicPhone: '+1234567890'
+                  });
+                  console.log('✅ Cancellation email sent');
+                } else {
+                  console.log('⚠️ No patient email, skipping cancellation email');
+                }
+                
+                console.log(`✅ Cancellation operation completed`);
+              } else {
+                console.log('⚠️ Appointment not found with confirmation number:', customData.confirmation_number);
+              }
+              
+            } else {
+              // ✅ NORMAL BOOKING - Match by phone, date, time
+              console.log('📅 Normal booking operation - matching by phone/date/time');
+              
+              const patientPhone = formatPhoneNumber(
+                call?.from_number,
+                customData?.phone_number
+              );
+              
+              const appointmentDate = parseRelativeDate(customData.preferred_date);
+              const appointmentTime = parseTime(customData.preferred_time);
+              
+              console.log('🔍 Searching for appointment:', {
+                phone: patientPhone,
+                date: appointmentDate,
+                time: appointmentTime
+              });
+              
+              // Get recent voice agent appointments (last 24 hours)
+              const oneDayAgo = new Date();
+              oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+              
+              const existingAppointment = await Appointment.find({
+                voiceAgentBooking: true,
+                createdAt: { $gte: oneDayAgo }
+              });
+              
+              console.log(`📊 Found ${existingAppointment.length} recent voice agent appointments`);
+              
+              const appointmentForThisCall = existingAppointment.find((apt: any) => {
+                const aptDate = apt.appointmentDate.toISOString().split('T')[0];
+                
+                // Normalize phone numbers: remove spaces, plus signs, and dashes
+                const normalizePhone = (phone?: string) => {
+                  return phone?.replace(/[\s\+\-\(\)]/g, '') || '';
+                };
+                
+                const normalizedWebhookPhone = normalizePhone(patientPhone);
+                const normalizedAptPhone = normalizePhone(apt.patientPhone);
+                
+                const phoneMatch = normalizedAptPhone === normalizedWebhookPhone;
+                const dateMatch = aptDate === appointmentDate;
+                const timeMatch = apt.appointmentTime === appointmentTime;
+                
+                // Debug logging
+                if (apt.voiceAgentBooking && dateMatch && timeMatch) {
+                  console.log('🔍 Checking appointment:', {
+                    aptId: apt._id,
+                    aptPhone: apt.patientPhone,
+                    normalizedAptPhone,
+                    webhookPhone: patientPhone,
+                    normalizedWebhookPhone,
+                    phoneMatch,
+                    dateMatch,
+                    timeMatch
+                  });
+                }
+                
+                return phoneMatch && dateMatch && timeMatch && apt.voiceAgentBooking;
+              });
+              
+              if (appointmentForThisCall) {
+                console.log(`✅ Appointment already exists (created by custom function): ${appointmentForThisCall._id}`);
+                console.log('📝 Updating appointment with webhook data (transcript, sentiment, etc.)...');
+                
+                // ✅ UPDATE existing appointment with additional webhook data
+                await this.updateAppointmentWithWebhookData(appointmentForThisCall._id, call, voiceCall._id);
+                
+                // Link existing appointment to voice call
+                voiceCall.appointmentId = appointmentForThisCall._id;
+                await voiceCall.save();
+                
+                console.log(`✅ Appointment updated and linked to voice call`);
+              } else {
+                console.log('📅 No existing appointment found, creating new one (fallback)...');
+                
+                const appointment = await this.createAppointmentFromCall(call, voiceCall._id);
+                
+                // Update voice call with appointment reference
+                voiceCall.appointmentId = appointment._id;
+                await voiceCall.save();
+                
+                console.log(`✅ Appointment created and linked: ${appointment._id}`);
+                console.log(`   Patient: ${appointment.patientName}`);
+                console.log(`   Doctor: ${appointment.doctorName}`);
+                console.log(`   Date: ${appointment.appointmentDate}`);
+                console.log(`   Time: ${appointment.appointmentTime}`);
+              }
+            }
             
           } catch (appointmentError: any) {
-            console.error('❌ Failed to create appointment:', appointmentError.message);
+            console.error('❌ Failed to process appointment:', appointmentError.message);
             console.error('   Call ID:', call?.call_id);
             console.error('   Custom Data:', customData);
             // Don't throw - we already saved the call record
@@ -520,6 +700,165 @@ class WebhookController {
         message: 'Webhook health check failed'
       });
     }
+  }
+
+  // Update existing appointment with webhook data (transcript, sentiment, etc.)
+  private async updateAppointmentWithWebhookData(appointmentId: any, call: any, voiceCallId: any) {
+    try {
+      const analysis = call?.call_analysis;
+      const customData = analysis?.custom_analysis_data;
+      
+      console.log('📝 Updating appointment with webhook data...');
+      
+      // Get the appointment
+      const appointment = await appointmentService.getAppointmentById(appointmentId.toString());
+      
+      if (!appointment) {
+        throw new Error('Appointment not found');
+      }
+      
+      // Extract patient ID from call metadata if available
+      const patientId = call?.metadata?.patientId;
+      
+      // Get patient details if patientId exists
+      let patientEmail = appointment.patientEmail;
+      if (patientId && !patientEmail) {
+        const patient = await User.findById(patientId);
+        if (patient && patient.email) {
+          patientEmail = patient.email;
+        }
+      }
+      
+      // Update appointment with additional webhook data
+      const updateData: any = {
+        // Add voiceCallId if not already set
+        voiceCallId: voiceCallId,
+        
+        // Update patient email if found
+        ...(patientEmail && { patientEmail }),
+        
+        // Update patientId if found in metadata
+        ...(patientId && { patientId }),
+        
+        // 🆕 Add confirmation number from custom analysis data
+        ...(customData?.confirmation_number && { confirmationNumber: customData.confirmation_number }),
+        
+        // Enhance voiceAgentData with full call information
+        voiceAgentData: {
+          ...(appointment.voiceAgentData || {}),
+          callId: call?.call_id,
+          transcript: call?.transcript || analysis?.call_summary,
+          confidence: 0.95,
+          agentId: call?.agent_id,
+          userSentiment: analysis?.user_sentiment,
+          callSuccessful: analysis?.call_successful,
+          callSummary: analysis?.call_summary,
+          recordingUrl: call?.recording_url,
+          publicLogUrl: call?.public_log_url,
+          updatedByWebhook: true,
+          webhookTimestamp: new Date().toISOString()
+        }
+      };
+      
+      // Update the appointment
+      Object.assign(appointment, updateData);
+      await appointment.save();
+      
+      console.log('✅ Appointment updated with webhook data:', {
+        appointmentId: appointment._id,
+        hasTranscript: !!call?.transcript,
+        hasSentiment: !!analysis?.user_sentiment,
+        hasPatientId: !!patientId,
+        hasPatientEmail: !!patientEmail
+      });
+      
+      // 🆕 Create Google Calendar event now that we have complete data
+      if (patientEmail) {
+        console.log('📅 Attempting to create Google Calendar event...');
+        
+        try {
+          await this.createCalendarEventForAppointment(appointment);
+        } catch {
+          console.log('⚠️ Calendar event failed, sending fallback email instead');
+          
+          // Fallback: Send simple email without calendar invite
+          
+          // Generate confirmation number
+          const confirmationNumber = `NOVA-${appointment.appointmentDate.toISOString().split('T')[0].replace(/-/g, '')}-${appointment._id.toString().slice(-3).toUpperCase()}`;
+          
+          await emailService.sendAppointmentConfirmationEmail({
+            patientName: appointment.patientName || 'Patient',
+            patientEmail: patientEmail,
+            doctorName: appointment.doctorName || 'Doctor',
+            appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+            appointmentTime: appointment.appointmentTime,
+            reasonForVisit: appointment.reasonForVisit || 'General consultation',
+            consultationType: appointment.consultationType,
+            confirmationNumber: confirmationNumber,
+            clinicAddress: 'Nova Health Clinic, Main Street',
+            clinicPhone: '+1234567890'
+          });
+        }
+      } else {
+        console.log('⚠️ No patient email found, skipping email notification');
+      }
+      
+      return appointment;
+      
+    } catch (error: any) {
+      console.error('❌ Error updating appointment with webhook data:', error.message);
+      throw error;
+    }
+  }
+
+  // Create Google Calendar event for appointment
+  private async createCalendarEventForAppointment(appointment: any) {
+    // Get doctor profile
+    const doctorProfile = await DoctorProfile.findOne({ userId: appointment.doctorId });
+    if (!doctorProfile) {
+      throw new Error('Doctor profile not found');
+    }
+
+    // Check if calendar is enabled
+    if (!doctorProfile.googleCalendarEnabled) {
+      throw new Error('Doctor calendar not enabled');
+    }
+
+    if (!doctorProfile.googleCalendarId) {
+      throw new Error('Doctor calendar ID not configured');
+    }
+
+    // Get doctor email
+    const doctor = await User.findById(appointment.doctorId);
+    if (!doctor || !doctor.email) {
+      throw new Error('Doctor email not found');
+    }
+
+    // Create calendar event
+    const result = await googleCalendarService.createAppointmentEvent(doctorProfile, {
+      patientName: appointment.patientName || 'Patient',
+      patientEmail: appointment.patientEmail,
+      doctorName: appointment.doctorName || `Dr. ${doctor.firstName} ${doctor.lastName}`,
+      doctorEmail: doctor.email,
+      appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
+      appointmentTime: appointment.appointmentTime,
+      duration: appointment.duration || 30,
+      reasonForVisit: appointment.reasonForVisit || 'General consultation',
+      consultationType: appointment.consultationType,
+    });
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create calendar event');
+    }
+
+    console.log('✅ Calendar event created successfully');
+    console.log('📅 Google Meet link:', result.meetLink);
+    
+    // Save the meet link to appointment notes
+    appointment.notes = appointment.notes 
+      ? `${appointment.notes}\n\nGoogle Meet: ${result.meetLink}`
+      : `Google Meet: ${result.meetLink}`;
+    await appointment.save();
   }
 
   // Test webhook endpoint
