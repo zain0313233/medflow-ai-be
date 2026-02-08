@@ -104,6 +104,7 @@ export async function processMedicalDocument(documentId: string): Promise<IDocum
         parsedData = JSON.parse(responseText);
       }
     } catch (parseError) {
+      console.log(parseError);
       console.error('Failed to parse AI response:', responseText);
       throw new Error('AI response is not valid JSON');
     }

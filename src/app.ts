@@ -19,10 +19,35 @@ const app = express();
 
 // Middlewares
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ["http://localhost:3000", "http://localhost:3001"],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
+    
+    // Get allowed origins from env or use defaults
+    const allowedOrigins = process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',') 
+      : ["http://localhost:3000", "http://localhost:3001"];
+    
+    // Allow Retell AI domains
+    const retellDomains = [
+      'https://api.retellai.com',
+      'https://retellai.com',
+      'https://app.retellai.com'
+    ];
+    
+    // Combine all allowed origins
+    const allAllowedOrigins = [...allowedOrigins, ...retellDomains];
+    
+    // Check if origin is allowed
+    if (allAllowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now (you can restrict later)
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Retell-Signature"]
 }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
