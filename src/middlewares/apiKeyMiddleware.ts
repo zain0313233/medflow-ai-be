@@ -17,6 +17,7 @@ export const apiKeyAuth = (allowedKeys: string[]) => {
         req.headers['authorization']?.replace('Bearer ', '');
 
       if (!apiKey) {
+        console.log('❌ No API key provided');
         return res.status(401).json({
           success: false,
           message: 'API key is required',
@@ -29,21 +30,29 @@ export const apiKeyAuth = (allowedKeys: string[]) => {
       
       // Only compare if keys have the same length (prevents buffer size errors)
       for (const key of allowedKeys) {
+        console.log(`🔍 Comparing with allowed key (length ${key.length})`);
         if (apiKey.length === key.length) {
           try {
             // Constant-time comparison to prevent timing attacks
             if (crypto.timingSafeEqual(Buffer.from(apiKey), Buffer.from(key))) {
+              console.log('✅ API key matched!');
               isValidKey = true;
               break;
+            } else {
+              console.log('❌ timingSafeEqual returned false');
             }
-          } catch {
+          } catch (error) {
+            console.log('❌ timingSafeEqual threw error:', error);
             // Continue to next key if comparison fails
             continue;
           }
+        } else {
+          console.log(`❌ Length mismatch: ${apiKey.length} vs ${key.length}`);
         }
       }
 
       if (!isValidKey) {
+        console.log('❌ No valid key matched');
         return res.status(403).json({
           success: false,
           message: 'Invalid API key',
@@ -51,9 +60,11 @@ export const apiKeyAuth = (allowedKeys: string[]) => {
         });
       }
 
+      console.log('✅ API key validation passed');
       // API key is valid, proceed
       next();
     } catch (error: any) {
+      console.log('❌ API key validation exception:', error);
       return res.status(401).json({
         success: false,
         message: 'API key validation failed',
