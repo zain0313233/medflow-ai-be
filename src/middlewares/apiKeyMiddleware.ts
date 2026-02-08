@@ -151,8 +151,11 @@ export const voiceAgentAuth = (req: Request, res: Response, next: NextFunction) 
 
   // Debug logging
   const receivedKey = req.headers['x-api-key'] as string || req.headers['api-key'] as string;
-  console.log('🔑 Received API Key:', receivedKey ? `${receivedKey.substring(0, 10)}...` : 'MISSING');
-  console.log('🔑 Expected API Key:', voiceAgentKey ? `${voiceAgentKey.substring(0, 10)}...` : 'NOT SET');
+  console.log('🔑 Received API Key:', receivedKey ? receivedKey : 'MISSING');
+  console.log('🔑 Expected API Key:', voiceAgentKey);
+  console.log('🔑 Keys match:', receivedKey === voiceAgentKey);
+  console.log('🔑 Received length:', receivedKey?.length);
+  console.log('🔑 Expected length:', voiceAgentKey?.length);
 
   return apiKeyAuth([voiceAgentKey])(req, res, next);
 };
